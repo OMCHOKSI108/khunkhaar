@@ -1,0 +1,39 @@
+# KHUNKHAAR QA — Phase 1 Python toolchain
+# The host Python is PEP 668 externally-managed, so everything is installed into
+# ~/KHUNKHAAR-QA/.venv and pinned by requirements.lock.txt after resolution.
+
+# MCP SDK (official, maintained) — powers all four KHUNKHAAR MCP servers
+mcp>=1.0.0
+
+# Browser automation — pinned to the version ALREADY WORKING on this host (1.62.0)
+# so the existing ~/.cache/ms-playwright Chromium build is reused, not upgraded.
+playwright==1.62.0
+
+# API testing
+httpx>=0.28
+requests>=2.32
+pydantic>=2.13
+pydantic-settings>=2.15
+python-multipart>=0.0.9
+
+# Test + property-based/fuzz
+pytest>=8.0
+pytest-asyncio>=0.24
+hypothesis>=6.100
+
+# Local mock API server used for validation (never a production target)
+fastapi>=0.115
+uvicorn>=0.30
+
+# Database drivers — PostgreSQL first
+psycopg[binary]>=3.2
+asyncpg>=0.30
+pymongo>=4.10
+
+# Security (Python-native)
+bandit>=1.7
+pip-audit>=2.7
+
+# Persistence / config
+PyYAML>=6.0
+python-dotenv>=1.0

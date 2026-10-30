@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Runtime state, reports and evidence are local artifacts, not source
+runtime/tmp/**
+logs/*.log
+evidence/**
+reports/**/screenshots/**
+data/state/**
+
+# Never commit credentials or project secrets
+*.env
+.env*
+*.pem
+*.key
+credentials.json
+secrets.json
+config/*credentials*
+config/*.token
+
+# Keep directory placeholders
+!data/state/.gitkeep
+!logs/.gitkeep
+!evidence/.gitkeep
+!runtime/tmp/.gitkeep
