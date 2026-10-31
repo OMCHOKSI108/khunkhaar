@@ -4,7 +4,7 @@ All notable changes to KHUNKHAAR QA are documented here.
 Versions follow the phase plan: Phase 1 = infrastructure foundation (0.1.x), Phase 2 = autonomous
 adversarial QA engine (0.2.x), Phase 3 = private, git-aware QA intelligence (0.3.x).
 
-## [Unreleased] — Phase 3 in progress
+## [0.3.0] — 2026-10-31 — Phase 3 (private, git-aware QA intelligence)
 
 ### Added — P0 (platform groundwork)
 - Schema 4 migration with `git_analyses`, `evidence_refs`, `authorizations` and retention classes;
@@ -324,6 +324,49 @@ adversarial QA engine (0.2.x), Phase 3 = private, git-aware QA intelligence (0.3
   page loads leave findings, evidence files and the repository tree byte-identical. A real
   Playwright run at 390×664 reuses the Phase 2 overflow probe and finds no horizontal overflow
   offender on every page.
+
+### Added — P8 (acceptance, isolation proof and release documentation)
+- End-to-end acceptance suite (`tests/phase3/test_acceptance.py`) on disposable Python and
+  TypeScript repositories: registration, read-only git analysis, impact and risk, knowledge,
+  regression generation and validation, plan build with the approval gate, exact-plan execution,
+  independent verification, report generation, dashboard evidence serving and monitoring. The
+  Python chain runs 4 planned / 3 executed / 1 skipped missions and confirms 3 findings with 2/2
+  reproductions; the TypeScript chain proves analysis without execution (zero runs, plans, tests
+  or findings).
+- Negative and edge acceptance suite (`tests/phase3/test_acceptance_negative.py`, 5 tests): an
+  empty change set produces an empty plan and records no run; a multi-commit rename/delete/binary
+  history plus dirty state is reported with `index_untouched: true`; an engine interruption is
+  stored as `interrupted` with a partial summary and evidence; the CLI interruption path exits 130
+  and closes both the run and plan rows; an unreachable target combined with a missing database
+  records infrastructure errors and zero findings.
+- Honest interruption semantics: `KeyboardInterrupt`/`asyncio.CancelledError` finish the run row
+  as `interrupted`, persist the partial summary and re-raise; the `qa` command records the plan
+  status and a defensive run closure if the engine did not.
+- Fixture isolation fix: the acceptance app is imported with bytecode writing disabled, so the
+  repository under analysis stays byte-identical across a full run (the suite hashes the index,
+  every file's content and mtime before and after).
+- Release documentation set: architecture, completion report, test results, security review,
+  known limitations, CLI guide, dashboard guide and configuration reference, plus README Phase 3
+  links.
+- `bandit` residuals reviewed and documented rather than suppressed: two medium B608 findings are
+  read-only SQL identifier construction (`core/agents/base.py:161`,
+  `core/metadata/store.py:435`); no high-severity findings.
+- Lint cleanup across 15 files found by the first full `ruff` run, including a real undefined name
+  (`Path` in `core/browser/session.py` teardown annotation), unused imports, dead locals, ambiguous
+  loop variable names and placeholder-free f-strings. `ruff check core dashboard mcp-servers tools
+  scripts tests` is clean.
+- Version `0.3.0` in `VERSION`; the CLI prints it via `paths.version()`.
+
+### Validation — P8 (recorded evidence)
+- `pytest tests`: 543 passed in 89.69s. `pytest tests/phase3`: 376 passed in 75.75s.
+  `tests/phase3/test_acceptance.py`: 2 passed in 19.62s.
+  `tests/phase3/test_acceptance_negative.py`: 5 passed in 3.55s.
+- `ruff check core dashboard mcp-servers tools scripts tests`: all checks passed.
+- `bandit` over 19,818 LOC: 0 high, 2 medium (documented above), 11 low.
+- Repository isolation proved by digest equality in the acceptance suite; no company repository
+  was used as a fixture.
+- Full details: `docs/PHASE3_TEST_RESULTS.md`, `docs/PHASE3_SECURITY_REVIEW.md`,
+  `docs/PHASE3_KNOWN_LIMITATIONS.md`.
 
 ## [0.2.0] — 2026-10-30 — Phase 2 (autonomous adversarial QA engine)
 

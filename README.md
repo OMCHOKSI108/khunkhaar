@@ -60,9 +60,39 @@ Phase 2 documents: [architecture](docs/PHASE2_ARCHITECTURE.md),
 [validation report](docs/PHASE2_VALIDATION_REPORT.md),
 [known limitations](docs/PHASE2_KNOWN_LIMITATIONS.md).
 
+## Phase 3 — private, git-aware QA intelligence
+
+Phase 3 makes the engine change-aware without ever writing to a repository: read-only git
+analysis, a dependency/impact graph with an approximate attention score, local merge-request
+review, regression tests generated only from confirmed findings, an approval-gated planner,
+bounded execution, local monitoring and a read-only dashboard.
+
+```bash
+khunkhaar project register --path <repo>
+khunkhaar git analyze --path <repo> --base origin/main
+khunkhaar impact --path <repo>
+khunkhaar plan --path <repo> --target <url>
+khunkhaar plan approve --plan <plan-id>
+khunkhaar qa --plan <plan-id>
+khunkhaar dashboard start                 # http://127.0.0.1:8899/
+```
+
+No GitLab write, repository write, CI change, hook or daemon is installed. Monitoring is opt-in
+and invoked by the operator's own scheduler; offline windows are recorded as missed, never as
+successful checks.
+
+Phase 3 documents: [architecture](docs/PHASE3_ARCHITECTURE.md),
+[completion report](docs/PHASE3_COMPLETION_REPORT.md),
+[test results](docs/PHASE3_TEST_RESULTS.md),
+[security review](docs/PHASE3_SECURITY_REVIEW.md),
+[known limitations](docs/PHASE3_KNOWN_LIMITATIONS.md),
+[CLI guide](docs/CLI_GUIDE.md),
+[dashboard guide](docs/DASHBOARD_GUIDE.md),
+[configuration](docs/CONFIGURATION.md).
+
 ## Test evidence
 
-134 tests pass (`reports/validation/full_suite.txt`):
+543 tests pass across Phase 1–3 (`pytest tests`, last recorded 2026-10-31):
 
 | Suite | Tests | Evidence |
 | --- | --- | --- |
@@ -72,7 +102,8 @@ Phase 2 documents: [architecture](docs/PHASE2_ARCHITECTURE.md),
 | Filesystem/evidence | 24 | `reports/validation/filesystem_tests.txt` |
 | MCP stdio boot | 4 | `reports/validation/mcp_stdio_tests.txt` |
 | Hypothesis properties | 7 | `reports/security/hypothesis.txt` |
-| Phase 2 engine | 33 | `tests/phase2/` (full run: 167 tests pass) |
+| Phase 2 engine | 33 | `tests/phase2/` (full run: 167 Phase 1/2 tests) |
+| Phase 3 intelligence | 376 | `tests/phase3/`; `docs/PHASE3_TEST_RESULTS.md` |
 
 OpenCode integration evidence: `reports/validation/opencode_mcp_list.txt` (4 servers connected)
 and `reports/validation/opencode_e2e.txt` (agent → `khunkhaar-api` → HTTP 200).
@@ -92,6 +123,11 @@ Scanner runs: `reports/security/{bandit,semgrep,pip-audit,nuclei,schemathesis}.t
 - [docs/SECURITY_AND_PERMISSIONS.md](docs/SECURITY_AND_PERMISSIONS.md) — the permission model
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — real problems hit during installation
 - [docs/PHASE1_COMPLETION_REPORT.md](docs/PHASE1_COMPLETION_REPORT.md) — acceptance criteria vs evidence
+- [docs/CLI_GUIDE.md](docs/CLI_GUIDE.md) — Phase 3 command reference and workflows
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — every section, default and safety floor
+- [docs/DASHBOARD_GUIDE.md](docs/DASHBOARD_GUIDE.md) — token, pages, evidence serving, limits
+- [docs/PHASE3_SECURITY_REVIEW.md](docs/PHASE3_SECURITY_REVIEW.md) — Phase 3 controls and residual risks
+- [docs/PHASE3_KNOWN_LIMITATIONS.md](docs/PHASE3_KNOWN_LIMITATIONS.md) — what is not proven
 
 ## Layout
 
