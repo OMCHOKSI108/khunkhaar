@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.project.name }} - KHUNKHAAR QA{% endblock %}
+{% block content %}
+<p class="muted"><a href="/">Overview</a> / project</p>
+<h1>{{ detail.project.name }}</h1>
+<p class="muted">{{ detail.project.project_id }} · {{ detail.project.project_type }} ·
+  {{ detail.project.languages | join(', ') or 'languages unknown' }} ·
+  {{ detail.project.frameworks | join(', ') or 'no framework detected' }}</p>
+<p class="muted">Repository: <code>{{ detail.project.root_path }}</code><br>
+  Branch (last discovery): <strong>{{ detail.profile.git.branch or 'unknown' }}</strong> ·
+  commit {{ detail.profile.git.commit or 'unknown' }} ·
+  discovered {{ detail.profile.detected_at or 'unknown' }}</p>
+
+<div class="cards">
+  <div class="card"><div class="muted">Findings</div><div class="metric">{{ detail.stats.total }}</div>
+    <div class="muted">{{ detail.stats.by_status.get('confirmed', 0) }} confirmed ·
+      {{ detail.stats.by_status.get('false_positive', 0) }} false positive</div></div>
+  <div class="card"><div class="muted">Regression tests</div>
+    <div class="metric">{{ detail.regression.tests }}</div>
+    <div class="muted">{{ detail.regression.by_result.get('pass', 0) }} pass ·
+      {{ detail.regression.by_result.get('fail', 0) }} fail</div></div>
+  <div class="card"><div class="muted">Dependency graph</div>
+    <div class="metric">{{ detail.graph.info.nodes }} / {{ detail.graph.info.edges }}</div>
+    <div class="muted">nodes / edges</div></div>
+  <div class="card"><div class="muted">Latest risk</div>
+    <div class="metric">{% if detail.impact %}{{ detail.impact.score }}{% else %}n/a{% endif %}</div>
+    <div class="muted">{% if detail.impact %}{{ detail.impact.band }}{% else %}no impact report{% endif %}</div></div>
+</div>
+
+<h2>Latest change set</h2>
+{% if detail.changeset %}
+{% set summary = detail.changeset.summary %}
+<p class="row"><span class="tag">{{ detail.changeset.kind }}</span>
+  <span class="tag">{{ detail.changeset.base or '-' }} → {{ detail.changeset.head or '-' }}</span>
+  <span class="muted">{{ summary.get('files_changed', 0) }} file(s), +{{ summary.get('insertions', 0) }}
+    −{{ summary.get('deletions', 0) }}</span>
+  <a href="/diff/{{ detail.project.project_id }}">diff analysis</a></p>
+{% if detail.changeset.files %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>File</th><th>Status</th><th>+</th><th>−</th><th>Definitions</th></tr></thead>
+  <tbody>
+  {% for file in detail.changeset.files[:20] %}
+    <tr><td class="wrap">{{ file.path }}{% if file.old_path %}<div class="muted">from {{ file.old_path }}</div>{% endif %}</td>
+      <td>{{ file.status }}</td><td>{{ file.insertions }}</td><td>{{ file.deletions }}</td>
+      <td class="wrap">{{ file.functions | join(', ') or '—' }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if detail.changeset.total_files > 20 %}
+<p class="muted">Showing 20 of {{ detail.changeset.total_files }} changed files; the full list is on
+  the diff page.</p>
+{% endif %}
+{% else %}<p class="muted">The change set contains no file entries.</p>{% endif %}
+{% else %}
+<p class="muted">No git analysis is saved for this project yet.</p>
+{% endif %}
+
+<h2>Impact</h2>
+{% if detail.impact %}
+<div class="card">
+  <div class="row"><strong>Approximate risk {{ detail.impact.score }} / 100</strong>
+    <span class="tag">{{ detail.impact.band }}</span></div>
+  <p class="muted">{{ detail.impact.wording }}</p>
+  {% if detail.impact.factors %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Factor</th><th>Weight</th><th>Contribution</th></tr></thead>
+    <tbody>
+    {% for factor in detail.impact.factors %}
+      <tr><td>{{ factor.name }}</td><td>{{ factor.weight }}</td><td>{{ factor.contribution }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  <p class="muted">{{ detail.impact.summary.impacted }} impacted node(s), depth
+    {{ detail.impact.summary.depth }}; report {{ detail.impact.report_id }}.</p>
+</div>
+{% else %}
+<p class="muted">No impact report is recorded. Risk is never invented when the analysis is absent.</p>
+{% endif %}
+
+{% if detail.impact_trend | length > 1 %}
+<h2>Risk trend</h2>
+<p class="muted">{{ detail.risk_wording }}</p>
+<div class="card">
+  {% for point in detail.impact_trend | reverse %}
+  <div class="stack" style="margin-bottom:8px">
+    <div class="row"><span class="muted">{{ point.created_at }}</span>
+      <span class="tag">{{ point.score }} · {{ point.band }}</span></div>
+    <div class="bar-track"><div class="bar" style="width: {{ point.score }}%"></div></div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Critical workflows and documented rules</h2>
+{% if detail.invariants %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Rule</th><th>Description</th><th>Feature</th><th>Method</th><th>Confidence</th><th>Source</th></tr></thead>
+  <tbody>
+  {% for rule in detail.invariants[:50] %}
+    <tr><td>{{ rule.rule_id or '—' }}</td><td class="wrap">{{ rule.description }}</td>
+      <td>{{ rule.feature or '—' }}</td><td>{{ rule.method or '—' }}</td>
+      <td>{{ rule.confidence }}</td><td class="wrap">{{ rule.source }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if detail.invariants | length > 50 %}<p class="muted">Showing 50 of {{ detail.invariants | length }} rules.</p>{% endif %}
+{% else %}
+<p class="muted">No documented rule or invariant is stored for this project.</p>
+{% endif %}
+
+<h2>Most depended-on modules</h2>
+<p class="muted">{{ detail.graph.wording }}</p>
+{% if detail.graph.risky %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Type</th><th>Module</th><th>Path</th><th>Referrers</th></tr></thead>
+  <tbody>
+  {% for node in detail.graph.risky %}
+    <tr><td>{{ node.type }}</td><td>{{ node.name }}</td><td class="wrap">{{ node.path or '—' }}</td>
+      <td>{{ node.referrers }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">The dependency graph has no edges yet.</p>{% endif %}
+
+<h2>Findings</h2>
+{% if detail.findings %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>ID</th><th>Title</th><th>Severity</th><th>Status</th><th>Category</th>
+    <th>Feature</th><th>Confidence</th></tr></thead>
+  <tbody>
+  {% for finding in detail.findings %}
+    <tr><td>{{ finding.id }}</td><td class="wrap">{{ finding.title }}</td>
+      <td>{{ finding.severity }}</td><td>{{ finding.status }}</td><td>{{ finding.category }}</td>
+      <td>{{ finding.feature }}</td><td>{{ finding.confidence }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">No finding is recorded for this project.</p>{% endif %}
+
+<h2>Regression history</h2>
+{% if detail.regression_tests %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Test</th><th>Finding</th><th>Objective</th><th>Reliability</th><th>Confidence</th>
+    <th>Last success</th><th>Last failure</th></tr></thead>
+  <tbody>
+  {% for test in detail.regression_tests %}
+    <tr><td>{{ test.test_id }}</td><td>{{ test.finding_id }}</td><td class="wrap">{{ test.objective }}</td>
+      <td>{{ test.reliability }}</td><td>{{ test.confidence }}</td>
+      <td>{{ test.last_success_at or '—' }}</td><td>{{ test.last_failure_at or '—' }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">No generated regression test is recorded.</p>{% endif %}
+{% if detail.regression_runs %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Test</th><th>Result</th><th>Finished</th><th>Duration</th><th>Note</th></tr></thead>
+  <tbody>
+  {% for run in detail.regression_runs %}
+    <tr><td>{{ run.test_id }}</td><td>{{ run.result }}</td><td>{{ run.finished_at or '—' }}</td>
+      <td>{{ run.duration_ms }} ms</td><td class="wrap">{{ run.note }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<h2>Recent executions</h2>
+{% if detail.runs %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Run</th><th>Kind</th><th>Status</th><th>Started</th><th>Note</th></tr></thead>
+  <tbody>
+  {% for run in detail.runs %}
+    <tr><td><a href="/execution/{{ run.run_id }}">{{ run.run_id }}</a></td><td>{{ run.kind }}</td>
+      <td>{{ run.status }}</td><td>{{ run.started_at }}</td><td class="wrap">{{ run.note }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">No execution is recorded for this project.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.run.run_id }} - KHUNKHAAR QA{% endblock %}
+{% block content %}
+<p class="muted">{% if detail.project %}<a href="/project/{{ detail.project.project_id }}">{{ detail.project.name }}</a> / {% endif %}execution</p>
+<h1>{{ detail.run.run_id }}</h1>
+<p class="row"><span class="tag">{{ detail.run.kind }}</span>
+  <span class="tag">{{ detail.run.status }}</span>
+  <span class="muted">{{ detail.run.started_at }} → {{ detail.run.finished_at or 'not finished' }}</span></p>
+{% if detail.run.note %}<p class="muted">{{ detail.run.note }}</p>{% endif %}
+
+<div class="cards">
+  <div class="card"><div class="muted">Missions</div>
+    <div class="metric">{% if detail.missions %}{{ detail.missions.executed }} / {{ detail.missions.planned }}{% else %}n/a{% endif %}</div>
+    <div class="muted">{% if detail.missions %}{{ detail.missions.skipped }} skipped ·
+      {{ detail.missions.failed }} failed{% else %}no mission summary{% endif %}</div></div>
+  <div class="card"><div class="muted">Errors recorded</div>
+    <div class="metric">{{ detail.errors_recorded }}</div>
+    <div class="muted">messages are not rendered here</div></div>
+  <div class="card"><div class="muted">Evidence files</div>
+    <div class="metric">{{ detail.evidence | length }}</div>
+    <div class="muted">indexed links for this run</div></div>
+  <div class="card"><div class="muted">Budget</div>
+    {% if detail.budget %}
+    <div class="metric">{{ detail.budget.get('steps', 0) }} / {{ detail.budget.get('max_steps', 0) }}</div>
+    <div class="muted">steps · {{ detail.budget.get('requests', 0) }} requests ·
+      {{ detail.budget.get('elapsed_seconds', 0) }}s</div>
+    {% else %}<div class="metric">n/a</div><div class="muted">no budget summary</div>{% endif %}</div>
+</div>
+
+<h2>Agents</h2>
+{% if detail.agents %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Agent</th><th>Missions</th><th>Issues</th><th>Infrastructure errors</th></tr></thead>
+  <tbody>
+  {% for agent in detail.agents %}
+    <tr><td>{{ agent.agent }}</td><td>{{ agent.missions }}</td><td>{{ agent.issues }}</td>
+      <td>{{ agent.infrastructure_errors }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">The run report records no agent counters.</p>{% endif %}
+
+<h2>Verification</h2>
+{% if detail.verification %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Finding</th><th>Status</th><th>Attempts</th><th>Reproductions</th><th>Evidence</th></tr></thead>
+  <tbody>
+  {% for item in detail.verification %}
+    <tr><td>{{ item.finding_id }}</td><td>{{ item.status }}</td><td>{{ item.attempts }}</td>
+      <td>{{ item.reproductions }}</td>
+      <td class="wrap">{% if item.evidence_id %}<a href="/evidence/{{ item.evidence_id }}">{{ item.evidence }}</a>
+        {% else %}{{ item.evidence or '—' }}{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted">Only an independent verifier moves a finding to confirmed; an infrastructure error
+  never does.</p>
+{% else %}<p class="muted">No independent verification record is stored in this run.</p>{% endif %}
+
+<h2>Findings</h2>
+{% if detail.findings %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>ID</th><th>Title</th><th>Severity</th><th>Status</th><th>Category</th><th>Confidence</th></tr></thead>
+  <tbody>
+  {% for finding in detail.findings %}
+    <tr><td>{{ finding.id }}</td><td class="wrap">{{ finding.title }}</td><td>{{ finding.severity }}</td>
+      <td>{{ finding.status }}</td><td>{{ finding.category }}</td><td>{{ finding.confidence }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">No finding is recorded for this project.</p>{% endif %}
+
+{% if detail.screenshots %}
+<h2>Screenshots</h2>
+<div class="gallery">
+  {% for item in detail.screenshots %}
+  <a href="/evidence/{{ item.id }}"><img src="/evidence/{{ item.id }}"
+    alt="evidence {{ item.id }}: {{ item.path }}" loading="lazy"></a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Browser, API and database evidence</h2>
+{% if detail.evidence %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>ID</th><th>Kind</th><th>Class</th><th>Bytes</th><th>Path</th></tr></thead>
+  <tbody>
+  {% for item in detail.evidence %}
+    <tr><td><a href="/evidence/{{ item.id }}">{{ item.id }}</a></td><td>{{ item.kind }}</td>
+      <td>{{ item.retention_class }}</td><td>{{ item.bytes }}</td>
+      <td class="wrap">{{ item.path }}{% if item.image %} <span class="tag">image</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted">Text and JSON evidence is served as redacted plain text; HTML is never served as
+  markup and images are the only inline type.</p>
+{% else %}<p class="muted">No evidence is indexed for this run.</p>{% endif %}
+
+{% if detail.tools %}
+<h2>Tool health</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tool</th><th>Status</th><th>Version</th></tr></thead>
+  <tbody>
+  {% for tool in detail.tools %}
+    <tr><td>{{ tool.tool }}</td><td>{{ tool.status }}</td><td>{{ tool.version or '—' }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if detail.logs %}
+<h2>Logs</h2>
+<ul>
+  {% for item in detail.logs %}
+  <li><a href="/evidence/{{ item.id }}">{{ item.path }}</a>
+    <span class="muted">{{ item.bytes }} bytes · {{ item.retention_class }}</span></li>
+  {% endfor %}
+</ul>
+<p class="muted">Log text is served as redacted plain text, never executed or rendered as markup.</p>
+{% endif %}
+
+{% if detail.traces %}
+<h2>Traces</h2>
+<ul>
+  {% for item in detail.traces %}
+  <li><a href="/evidence/{{ item.id }}">{{ item.path }}</a>
+    <span class="muted">{{ item.bytes }} bytes</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<h2>Reports</h2>
+{% if detail.report_refs %}
+<ul>
+  {% for ref in detail.report_refs %}
+  <li><code>{{ ref.path }}</code> <span class="muted">{{ ref.created_at }}</span></li>
+  {% endfor %}
+</ul>
+{% if detail.report_path %}<p class="muted">Summaries on this page are read from
+  <code>{{ detail.report_path }}</code>; error message text and agent notes are deliberately not
+  rendered.</p>{% endif %}
+{% else %}<p class="muted">No report file is indexed for this run.</p>{% endif %}
+{% endblock %}

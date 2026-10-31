@@ -1,0 +1,42 @@
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL,
+    password_hash TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL,
+    owner_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS clock_shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    clock_in TEXT NOT NULL,
+    clock_out TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id INTEGER,
+    actor TEXT,
+    action TEXT,
+    at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    occurred_at TEXT NOT NULL
+);

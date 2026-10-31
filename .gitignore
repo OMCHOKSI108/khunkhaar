@@ -5,17 +5,30 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .hypothesis/
+.ruff_cache/
 
 # Node
 node_modules/
 npm-debug.log*
 
-# Runtime state, reports and evidence are local artifacts, not source
-runtime/tmp/**
-logs/*.log
-evidence/**
-reports/**/screenshots/**
-data/state/**
+# Local tooling state
+.opencode/
+.schemathesis/
+
+# Runtime state, reports and evidence are local artifacts, not source.
+# They can contain project profiles, credentials and company code facts.
+/runtime/
+/logs/
+/evidence/
+/data/
+/projects/
+/intelligence/
+/bin/
+/opt/
+/reports/phase2/
+/reports/performance/
+/reports/security/
+/reports/validation/
 
 # Never commit credentials or project secrets
 *.env
@@ -26,9 +39,3 @@ credentials.json
 secrets.json
 config/*credentials*
 config/*.token
-
-# Keep directory placeholders
-!data/state/.gitkeep
-!logs/.gitkeep
-!evidence/.gitkeep
-!runtime/tmp/.gitkeep

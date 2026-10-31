@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}KHUNKHAAR QA{% endblock %}</title>
+{% include "partials/style.html" %}
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="/">KHUNKHAAR <span>QA</span></a>
+    <nav>
+      <a href="/">Overview</a>
+    </nav>
+    <div class="top-right">
+      <span class="badge">read-only</span>
+      <span class="muted">v{{ version }}</span>
+      <form method="post" action="/logout"><button class="link" type="submit">Sign out</button></form>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+{% block content %}{% endblock %}
+</main>
+<footer class="wrap muted">
+  Local only. This dashboard reads the metadata store and the evidence index; it never starts a
+  scan, a test, a browser session or a request.
+</footer>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in - KHUNKHAAR QA</title>
+{% include "partials/style.html" %}
+</head>
+<body>
+<div class="login-shell">
+  <div class="login-card">
+    <h1>KHUNKHAAR <span style="color:#38bdf8">QA</span></h1>
+    <p class="muted">Private dashboard. Paste the token from
+      <code>data/profiles/dashboard/token</code>.</p>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <form method="post" action="/login">
+      <label class="muted" for="token">Access token</label>
+      <input id="token" name="token" type="password" autocomplete="current-password" required
+             autofocus>
+      <button class="primary" type="submit">Sign in</button>
+    </form>
+    <p class="muted">The token is generated on first start with mode 0600. Nothing is sent
+      anywhere except this loopback server.</p>
+  </div>
+</div>
+</body>
+</html>

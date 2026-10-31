@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Overview - KHUNKHAAR QA{% endblock %}
+{% block content %}
+<h1>Overall</h1>
+<p class="muted">Aggregated from the metadata store at read time. Numbers are counts of recorded
+  rows, not estimates.</p>
+
+<div class="cards">
+  <div class="card"><div class="muted">Projects</div><div class="metric">{{ overview.totals.projects }}</div></div>
+  <div class="card"><div class="muted">Executions</div><div class="metric">{{ overview.totals.executions }}</div></div>
+  <div class="card"><div class="muted">Confirmed defects</div><div class="metric">{{ overview.totals.confirmed }}</div></div>
+  <div class="card"><div class="muted">Open / unverified</div><div class="metric">{{ overview.totals.open }}</div></div>
+  <div class="card"><div class="muted">Not reproduced</div><div class="metric">{{ overview.totals.not_reproduced }}</div>
+    <div class="muted">closed after verification attempts</div></div>
+  <div class="card"><div class="muted">Security findings</div><div class="metric">{{ overview.totals.security }}</div></div>
+  <div class="card"><div class="muted">Regression pass / fail</div>
+    <div class="metric">{{ overview.totals.regression_pass }} / {{ overview.totals.regression_fail }}</div>
+    <div class="muted">{{ overview.totals.regression_unavailable }} environment-unavailable</div></div>
+  <div class="card"><div class="muted">False-positive rate</div>
+    <div class="metric">{% if overview.totals.false_positive_rate is not none %}{{ overview.totals.false_positive_rate }}%{% else %}n/a{% endif %}</div>
+    <div class="muted">of confirmed + false-positive findings</div></div>
+</div>
+
+<h2>Projects</h2>
+{% if overview.cards %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Project</th><th>Type</th><th>Executions</th><th>Last run</th>
+    <th>Confirmed</th><th>Open</th><th>Not reproduced</th><th>Security</th><th>Regression</th>
+    <th>False positives</th><th>Risk</th></tr></thead>
+  <tbody>
+  {% for card in overview.cards %}
+    <tr>
+      <td><a href="/project/{{ card.project.project_id }}">{{ card.project.name }}</a>
+        <div class="muted">{{ card.project.project_id }}</div></td>
+      <td>{{ card.project.project_type }}</td>
+      <td>{{ card.runs }}</td>
+      <td>{% if card.latest_run %}<a href="/execution/{{ card.latest_run.run_id }}">{{ card.latest_run.kind }}</a>
+        <div class="muted">{{ card.latest_run.started_at }} · {{ card.latest_run.status }}</div>
+        {% else %}<span class="muted">never</span>{% endif %}</td>
+      <td>{{ card.confirmed }}</td>
+      <td>{{ card.open }}</td>
+      <td>{{ card.not_reproduced }}</td>
+      <td>{{ card.security }}</td>
+      <td>{{ card.regression.by_result.get('pass', 0) }} / {{ card.regression.by_result.get('fail', 0) }}</td>
+      <td>{{ card.false_positive }}{% if card.false_positive_rate is not none %}
+        <div class="muted">{{ card.false_positive_rate }}%</div>{% endif %}</td>
+      <td>{% if card.latest_impact %}{{ card.latest_impact.score }}
+        <div class="muted">{{ card.latest_impact.band }}</div>
+        {% else %}<span class="muted">not scored</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">No project is registered. Register one with <code>khunkhaar project register</code>.</p>
+{% endif %}
+
+<h2>Risk trend</h2>
+<p class="muted">{{ overview.risk_wording }}</p>
+{% if overview.cards %}
+<div class="cards">
+  {% for card in overview.cards %}
+  <div class="card">
+    <h3><a href="/project/{{ card.project.project_id }}">{{ card.project.name }}</a></h3>
+    {% if card.risk_points %}
+      {% for point in card.risk_points[:6] | reverse %}
+      <div class="stack" style="margin-bottom:8px">
+        <div class="row"><span class="muted">{{ point.created_at }}</span>
+          <span class="tag">{{ point.score }} · {{ point.band }}</span></div>
+        <div class="bar-track"><div class="bar" style="width: {{ point.score }}%"></div></div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No impact report is recorded for this project yet.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Agent performance</h2>
+{% if overview.agents %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Agent</th><th>Missions</th><th>Issues</th><th>Infrastructure errors</th>
+    <th>Projects</th></tr></thead>
+  <tbody>
+  {% for agent in overview.agents %}
+    <tr><td>{{ agent.agent }}</td><td>{{ agent.missions }}</td><td>{{ agent.issues }}</td>
+      <td>{{ agent.infrastructure_errors }}</td><td>{{ agent.projects }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted">Counts come from the latest run report recorded for each project. Infrastructure
+  errors are separated from application issues on purpose.</p>
+{% else %}
+<p class="muted">No run report with agent counters is recorded yet.</p>
+{% endif %}
+
+<h2>Recent executions</h2>
+{% if overview.recent_runs %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Run</th><th>Project</th><th>Kind</th><th>Status</th><th>Started</th><th>Note</th></tr></thead>
+  <tbody>
+  {% for run in overview.recent_runs %}
+    <tr><td><a href="/execution/{{ run.run_id }}">{{ run.run_id }}</a></td>
+      <td>{{ run.project_name }}</td><td>{{ run.kind }}</td><td>{{ run.status }}</td>
+      <td>{{ run.started_at }}</td><td class="wrap">{{ run.note }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">No execution is recorded.</p>
+{% endif %}
+{% endblock %}

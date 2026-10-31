@@ -1,0 +1,271 @@
+# KHUNKHAAR QA — central configuration
+# Every value here is a safety gate, not a suggestion. Defaults are deliberately restrictive.
+# Absolute paths are never written here: everything is relative to the KHUNKHAAR root,
+# which core/shared/paths.py resolves from $KHUNKHAAR_ROOT or the install location.
+
+project:
+  name: KHUNKHAAR-QA
+  phase: 3
+
+api:
+  # Requests are refused until a host appears in this list. Phase 1 ships only the local
+  # mock target used for validation; add your project's API hosts here when you are ready.
+  allowed_hosts:
+    - "127.0.0.1:8731"
+    - "localhost:8731"
+    # Disposable Phase 2 synthetic application (tests/fixtures/vulnapp).
+    - "127.0.0.1:8740"
+    - "localhost:8740"
+  # Never reachable regardless of the allowlist (cloud metadata / SSRF uplift).
+  denied_hosts:
+    - "169.254.169.254"
+    - "metadata.google.internal"
+  # This is a developer machine whose QA targets are routinely local, so private ranges stay
+  # allowed; link-local and metadata addresses are blocked unconditionally by netguard.
+  allow_private_ranges: true
+  default_timeout_seconds: 10
+  max_timeout_seconds: 120
+  safe_methods: [GET, HEAD, OPTIONS]
+  mutating_methods: [POST, PUT, PATCH]
+  destructive_methods: [DELETE]
+  require_approval_for_mutating: false
+  require_approval_for_destructive: true
+  max_retries: 3
+  max_request_bytes: 2000000
+  max_response_bytes: 5000000
+  max_body_chars_in_output: 20000
+  evidence_enabled: true
+
+database:
+  default_profile: khunkhaar_test_pg
+  enforce_read_only: true          # blocks DDL/DML at three independent layers
+  statement_timeout_ms: 5000
+  max_rows: 500
+  max_identifier_len: 128
+  profiles:
+    - name: khunkhaar_test_pg
+      kind: postgresql
+      host: 127.0.0.1
+      port: 5445                   # disposable Docker Postgres; never a real cluster
+      database: khunkhaar_qa
+      user: khunkhaar_ro
+      # Credentials are referenced by environment variable name only. No password is stored
+      # in this file, in SQLite, or in any report.
+      password_env: KHUNKHAAR_TEST_PG_PASSWORD
+      read_only: true
+      redacted_columns:
+        - "users.email"
+        - "users.password_hash"
+        - "orders.card_last4"
+    - name: local_pg_16
+      kind: postgresql
+      host: 127.0.0.1
+      port: 5432
+      database: null               # discovered from the connected account at runtime
+      user: null                   # must be supplied per call, never guessed from .env
+      read_only: true
+      enabled: false               # opt-in: pointing QA at a real cluster is deliberate
+
+auth:
+  # Named profiles an agent may reference without ever seeing the secret.
+  # Add: - { name: staging_api, env_var: STAGING_API_TOKEN, header: Authorization, scheme: Bearer }
+  profiles: []
+
+browser:
+  headless: true
+  default_engine: chromium
+  tracing: true
+  video: false
+  screenshot_on_action: false
+  navigation_timeout_ms: 30000
+  # Empty means any http(s) origin is navigable. Phase 1 ships locked to the local
+  # mock app; a project adds its own origins to this list before browser QA.
+  # Non-http(s) schemes (file:, data:, chrome://) are refused even when this is empty.
+  allowed_origins:
+    - "http://127.0.0.1:8731"
+    - "http://localhost:8731"
+    - "http://127.0.0.1:8740"
+    - "http://localhost:8740"
+  max_output_bytes: 200000
+
+filesystem:
+  roots: [evidence, reports, logs, runtime/tmp, data, projects/registry, intelligence]
+  max_read_bytes: 1000000
+  # Names that must never be read or returned through the filesystem MCP server.
+  deny_names: [".env", ".env.local", "service.json", "id_rsa", "id_ed25519",
+               "credentials.json", ".git-credentials", "cookies.sqlite", "cookies.txt"]
+  tmp_ttl_hours: 24
+
+security:
+  scans_require_authorization: true
+  authorized_targets: []           # active scanning is impossible until a target is listed
+  forbid_production_targets: true
+  production_markers: ["prod", "production", "live"]
+  destructive_approved_targets: [] # required before any DELETE can execute
+  zap:
+    image: "ghcr.io/zaproxy/zaproxy:stable"
+    mode: docker                   # on-demand container, removed after the scan
+    allow_scan: false
+
+fuzzing:
+  max_cases_per_run: 200
+  max_runtime_seconds: 120
+  target_allowlist_inherited_from: api.allowed_hosts
+
+project_discovery:
+  max_files_scanned: 40000
+  secret_value_ingest: false       # only variable NAMES and presence are recorded
+  skip_dirs: [.git, node_modules, .venv, venv, __pycache__, dist, build, .next, .nuxt,
+              target, vendor, .mypy_cache, .pytest_cache, coverage, .idea, .gradle, out]
+
+performance:
+  k6:
+    binary: bin/k6
+    max_vus: 20
+    max_duration_seconds: 120
+    forbid_remote_targets_without_approval: true
+
+metadata_store:
+  engine: sqlite
+  path: data/metadata/platform.sqlite3
+
+# ---------------------------------------------------------------- Phase 3
+
+git:
+  # Every argument list is built from this allowlist; anything else is refused before exec.
+  # There is deliberately no write-capable subcommand here — KHUNKHAAR never touches a
+  # repository's index, working tree, refs or remotes.
+  read_only_commands:
+    - rev-parse
+    - log
+    - show
+    - diff
+    - status
+    - ls-files
+    - ls-tree
+    - merge-base
+    - show-ref
+    - for-each-ref
+    - cat-file
+    - count-objects
+    - config
+    - rev-list
+    - shortlog
+  # Refuses to analyse a repository that is not in the project registry. Registration is not
+  # authorization: an analysis only reads, so registration is the only gate here.
+  require_registered_project: true
+  # Verified before and after every read: identical output means the index and worktree
+  # were not touched. A mismatch aborts the analysis and is recorded as an error.
+  verify_index_untouched: true
+  max_files_in_report: 2000
+  max_diff_bytes_per_file: 200000
+  # Python symbol attribution reads both sides of each changed .py file (two blob reads each).
+  ast_symbol_attribution: true
+  max_symbol_attribution_files: 60
+  # One extra `git log --name-status -M` per branch/range analysis lists each commit's files.
+  commit_file_lists: true
+  max_files_per_commit: 40
+  # Candidate names only; the first one that resolves locally wins, else --base is required.
+  base_branch_candidates: [origin/main, main, origin/master, master, origin/develop, develop]
+
+impact:
+  # AST parsing replaces regex for these languages; unknown languages fall back to the
+  # import/require resolver and report lower confidence rather than pretending precision.
+  ast_languages: [python, javascript, typescript, tsx]
+  max_source_bytes: 2_000_000
+  # The graph walk is bounded: files, declarations per file, and impacted nodes per analysis.
+  max_files: 4000
+  max_symbols_per_file: 500
+  parse_js_ts: true                 # disable to skip tree-sitter for JS/TS entirely
+  max_graph_nodes: 20000
+  max_graph_edges: 100000
+  # Dependency traversal depth. Deeper is slower and noisier; 4 covers service-sized repos.
+  max_depth: 4
+  max_impacted: 500                 # impact walk stops here and says the list is a floor
+  # A risk score is an explanation of relative attention, never a proven failure probability.
+  label_as_estimate: true
+
+regression:
+  # Only independently verified findings may become a regression test with this status.
+  require_confirmed_finding: true
+  # A generated test must reproduce the original defect, then pass after it, before it is
+  # labelled reliable; anything else stays 'generated' or is marked unreliable.
+  validation_runs: 2
+  auto_execute: false              # generated tests run only when the operator invokes them
+  quarantine_unreliable: true
+
+gitlab:
+  # Read-only merge-request metadata for `khunkhaar mr analyze --gitlab-mr <iid>`. Disabled by
+  # default. Enabling it is two decisions: set enabled true AND add this host to api.allowed_hosts
+  # above. Only GET requests to merge-request metadata/diff endpoints exist in the adapter.
+  enabled: false
+  host: ""                         # e.g. https://gitlab.example.com (origin only, no path)
+  project: ""                      # numeric id or "group/project"
+  # The token is read from this environment variable at request time. Only the variable NAME is
+  # configuration; the value is never written to config, SQLite, artifacts, logs or the terminal.
+  token_env: KHUNKHAAR_GITLAB_TOKEN
+  token_header: PRIVATE-TOKEN
+  timeout_seconds: 10
+  max_diff_files: 500              # per-file diff identities kept; diff text is never stored
+
+planner:
+  # The operator reviews the plan before the engine spends time or requests.
+  require_approval: true
+  # Adversarial plans always need explicit approval, even in modes that allow unapproved runs.
+  always_approve_modes: [adversarial]
+  default_mode: controlled
+  # Actions against a target absent from this list are never planned.
+  respect_target_allowlist: true
+  # A plan never proposes more actions than this, however many missions are generated.
+  max_actions: 80
+  # Bounded workers for read-only API probes only; browser and journey missions stay serial.
+  api_workers: 2
+  # Approval is recorded with a timestamp on the plan itself. Editing a plan changes its digest,
+  # and a changed digest is refused instead of executed.
+  require_approval_for_adversarial: true
+  require_approval_for_external_target: true
+
+monitoring:
+  enabled: false                   # nothing is scheduled until the operator opts in
+  # KHUNKHAAR installs no system cron entry and no service; `monitor run` is meant to be
+  # invoked by the operator's own scheduler. Missing a window is recorded as 'missed',
+  # never silently skipped and never reported as a successful check.
+  install_system_scheduler: false
+  max_overdue_before_missed: 2
+  schedule_grace_seconds: 900
+  catch_up: false                  # offline machine => missed runs, honestly recorded
+  check_max_seconds: 600           # wall clock for one run-due execution
+  check_timeout_seconds: 120       # per check / per test process
+
+dashboard:
+  host: 127.0.0.1                  # loopback only; 0.0.0.0 is refused by the launcher
+  port: 8899
+  enabled: false                   # starts only via `khunkhaar dashboard start`
+  require_token: true
+  bind_non_loopback_requires_flag: true
+
+notifications:
+  terminal: true                   # print to the controlling terminal
+  desktop:
+    enabled: true                  # notify-send, if present; a missing binary is a warning
+    timeout_seconds: 5
+  # Remote channels stay off with no destinations configured; a notification never carries
+  # source code, credentials or evidence payloads — only counts and local paths.
+  email:
+    enabled: false
+    smtp_host: null
+    recipients: []
+  webhook:
+    enabled: false
+    url: null
+
+retention:
+  # Days before an unprotected evidence class becomes deletable. 0 disables automatic
+  # eligibility entirely.
+  evidence_days: 0
+  tmp_ttl_hours: 24
+  # Evidence attached to these finding statuses is never eligible for deletion.
+  protect_statuses: [confirmed, likely, unverified, needs_human, false_positive]
+  report_days: 0
+  max_evidence_bytes: 0            # 0 = no global cap enforced
+

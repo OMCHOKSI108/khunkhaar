@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unauthorized - KHUNKHAAR QA</title>
+{% include "partials/style.html" %}
+</head>
+<body>
+<div class="login-shell">
+  <div class="login-card">
+    <h1>Authentication required</h1>
+    <p class="muted">Every route except the login page needs a valid session. Open the login page
+      and paste the token from <code>data/profiles/dashboard/token</code>.</p>
+    <p><a href="/login">Go to the login page</a></p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Diff analysis - {{ detail.project.name }}{% endblock %}
+{% block content %}
+<p class="muted"><a href="/">Overview</a> / <a href="/project/{{ detail.project.project_id }}">{{ detail.project.name }}</a> / diff</p>
+<h1>Diff analysis</h1>
+
+{% if detail.analysis %}
+<div class="cards">
+  <div class="card"><div class="muted">Comparison</div>
+    <div class="metric">{{ detail.analysis.kind }}</div>
+    <div class="muted">{{ detail.analysis.base_ref or '-' }} → {{ detail.analysis.head_ref or '-' }}</div></div>
+  <div class="card"><div class="muted">Commits</div><div class="metric">{{ detail.analysis.commits }}</div></div>
+  <div class="card"><div class="muted">Files changed</div><div class="metric">{{ detail.analysis.files_changed }}</div>
+    <div class="muted">+{{ detail.analysis.insertions }} −{{ detail.analysis.deletions }}</div></div>
+  <div class="card"><div class="muted">Repository safety</div>
+    <div class="metric">{{ 'clean' if detail.analysis.worktree_clean else 'dirty' }}</div>
+    <div class="muted">index untouched: {{ 'yes' if detail.analysis.index_untouched else 'no' }} ·
+      conflicted: {{ 'yes' if detail.analysis.conflicted else 'no' }}</div></div>
+</div>
+<p class="muted">Saved {{ detail.analysis.created_at }} · {{ detail.analysis.renames }} rename(s) ·
+  {{ detail.analysis.removed }} removed file(s).</p>
+{% else %}
+<p class="muted">No git analysis is saved for this project. Run <code>khunkhaar git analyze</code>
+  first; this page does not read the repository itself.</p>
+{% endif %}
+
+<h2>Changed files</h2>
+{% if detail.changeset %}
+{% if detail.changeset.notes %}
+<ul class="muted">{% for note in detail.changeset.notes %}<li>{{ note }}</li>{% endfor %}</ul>
+{% endif %}
+{% if detail.changeset.files %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Path</th><th>Status</th><th>+</th><th>−</th><th>Hunks</th><th>Definitions</th><th>Attribution</th></tr></thead>
+  <tbody>
+  {% for file in detail.changeset.files %}
+    <tr><td class="wrap">{{ file.path }}{% if file.old_path %}<div class="muted">from {{ file.old_path }}</div>{% endif %}</td>
+      <td>{{ file.status }}</td><td>{{ file.insertions }}</td><td>{{ file.deletions }}</td>
+      <td>{{ file.hunks }}</td><td class="wrap">{{ file.functions | join(', ') or '—' }}</td>
+      <td>{{ file.attribution }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted">{{ detail.changeset.total_files }} changed file(s) in the saved change set{% if detail.changeset.truncated %} (truncated){% endif %}.</p>
+{% else %}<p class="muted">The change set has no file entries.</p>{% endif %}
+{% else %}<p class="muted">No change set artifact is available.</p>{% endif %}
+
+<h2>Impact and risk</h2>
+{% if detail.impact %}
+<p class="row"><strong>Approximate risk {{ detail.impact.score }} / 100</strong>
+  <span class="tag">{{ detail.impact.band }}</span>
+  <span class="muted">report {{ detail.impact.report_id }} · {{ detail.impact.created_at }}</span></p>
+<p class="muted">{{ detail.impact.wording }}</p>
+{% if detail.impact.factors %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Factor</th><th>Weight</th><th>Contribution</th></tr></thead>
+  <tbody>
+  {% for factor in detail.impact.factors %}
+    <tr><td>{{ factor.name }}</td><td>{{ factor.weight }}</td><td>{{ factor.contribution }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<h3>Impacted dependencies</h3>
+{% if detail.impact.impacted %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Depth</th><th>Type</th><th>Name</th><th>Path</th><th>Via</th></tr></thead>
+  <tbody>
+  {% for node in detail.impact.impacted %}
+    <tr><td>{{ node.depth }}</td><td>{{ node.type }}</td><td>{{ node.name }}</td>
+      <td class="wrap">{{ node.path or '—' }}</td><td class="wrap">{{ node.via }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">No impacted dependency is recorded.</p>{% endif %}
+
+<h3>Surface and workflows</h3>
+{% if detail.impact.surface or detail.impact.workflows %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Kind</th><th>Name</th><th>Via / feature</th></tr></thead>
+  <tbody>
+  {% for item in detail.impact.surface %}
+    <tr><td>{{ item.type }}</td><td>{{ item.name }}</td><td class="wrap">{{ item.via }}</td></tr>
+  {% endfor %}
+  {% for item in detail.impact.workflows %}
+    <tr><td>workflow</td><td>{{ item.name }}</td><td>{{ item.feature }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">No surface node is recorded.</p>{% endif %}
+
+<h3>Selected regression tests</h3>
+{% if detail.impact.tests %}
+<ul>{% for test in detail.impact.tests %}
+  <li>{{ test.name }}{% if test.path %} <span class="muted">{{ test.path }}</span>{% endif %}</li>
+{% endfor %}</ul>
+{% else %}<p class="muted">No regression test was linked to this change set.</p>{% endif %}
+{% else %}
+<p class="muted">No impact report is recorded. Run <code>khunkhaar impact</code> after a git
+  analysis; risk is never invented.</p>
+{% endif %}
+
+<h2>Plan</h2>
+{% if detail.plan %}
+<p class="row"><span class="tag">{{ detail.plan.mode }}</span>
+  <span class="tag">{{ detail.plan.status }}</span>
+  <span class="muted">digest {{ detail.plan.digest[:16] }}… · created {{ detail.plan.created_at }}</span></p>
+<p class="muted">{% if detail.plan.approved_at %}Approved by {{ detail.plan.approved_by or 'unknown' }}
+  at {{ detail.plan.approved_at }}.{% else %}This plan has no recorded approval.{% endif %}</p>
+{% if detail.plan.actions %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Agent</th><th>Kind</th><th>Feature</th><th>Requires approval</th><th>Cost</th>
+    <th>Selected tests</th></tr></thead>
+  <tbody>
+  {% for action in detail.plan.actions %}
+    <tr><td>{{ action.agent }}</td><td>{{ action.kind }}</td><td>{{ action.feature or '—' }}</td>
+      <td>{{ 'yes' if action.requires_approval else 'no' }}</td>
+      <td>{{ action.requests }} req / {{ action.steps }} steps</td>
+      <td>{{ action.selected_tests }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="muted">The plan has no action rows.</p>{% endif %}
+{% else %}
+<p class="muted">No QA plan is stored for this project.</p>
+{% endif %}
+
+<h2>Outcome</h2>
+{% if detail.outcome %}
+<p class="row"><span class="tag">{{ detail.outcome.kind }}</span>
+  <span class="tag">{{ detail.outcome.status }}</span>
+  <a href="/execution/{{ detail.outcome.run_id }}">{{ detail.outcome.run_id }}</a></p>
+<p class="muted">{{ detail.outcome.note }}</p>
+{% else %}
+<p class="muted">No execution outcome is recorded for this project.</p>
+{% endif %}
+{% endblock %}

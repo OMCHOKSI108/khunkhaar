@@ -1,0 +1,5 @@
+[project]
+name = "khunkhaar-synthetic-vulnapp"
+version = "0.1.0"
+description = "Disposable application used to validate KHUNKHAAR Phase 2 discovery and verification."
+requires-python = ">=3.11"

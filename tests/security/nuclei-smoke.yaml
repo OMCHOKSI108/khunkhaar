@@ -1,0 +1,21 @@
+id: khunkhaar-mock-health
+
+info:
+  name: KHUNKHAAR mock API health check
+  author: khunkhaar
+  severity: info
+  description: Phase 1 smoke template that proves the scanner runs end to end without fetching remote templates.
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/health"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "khunkhaar-mock"

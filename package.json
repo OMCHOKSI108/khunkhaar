@@ -1,0 +1,14 @@
+{
+  "name": "khunkhaar-qa-node",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Node-side QA toolchain for KHUNKHAAR QA (Playwright + axe-core). Browsers are shared with the Python Playwright install via ~/.cache/ms-playwright.",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "axe-core": "^4.10.0",
+    "playwright": "1.62.0"
+  }
+}
