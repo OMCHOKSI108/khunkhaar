@@ -17,7 +17,6 @@ from core.execution.api import ApiClient
 from core.execution.db import DatabaseReadError, PostgresReader, SqliteReader
 from core.missions import spec as specmod
 from core.shared import evidence as ev
-from core.shared.config import current
 
 
 @dataclass

@@ -25,7 +25,7 @@ from core.shared.config import current  # noqa: E402
 from core.shared.credentials import list_profiles  # noqa: E402
 from core.shared.http_client import PolicyViolation, RequestSpec, TargetDenied  # noqa: E402
 from core.shared.netguard import check_target  # noqa: E402
-from core.shared.toollog import get_logger, logged, logged_async  # noqa: E402
+from core.shared.toollog import get_logger  # noqa: E402
 
 logger = get_logger("mcp_api", "mcp_api.log")
 

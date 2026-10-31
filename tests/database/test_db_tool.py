@@ -188,8 +188,6 @@ def test_rejected_query_is_recorded_as_evidence(db_mcp):
 
 def test_database_role_itself_refuses_writes():
     """Bypass the SQL guard entirely and talk to Postgres with the same read-only role."""
-    import psycopg
-
     profile = ad.profile_by_name(None)
     adapter = ad.get_adapter(profile)
     with pytest.raises(Exception) as caught:
@@ -200,10 +198,6 @@ def test_database_role_itself_refuses_writes():
 
 
 def test_statement_timeout_is_enforced_at_the_connection_layer():
-    import os
-
-    import psycopg
-
     profile = ad.profile_by_name(None)
     adapter = ad.get_adapter(profile)
     with pytest.raises(Exception) as caught:

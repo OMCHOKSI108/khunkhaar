@@ -60,8 +60,6 @@ def logged(logger: logging.Logger) -> Callable:
 
 
 def logged_async(logger: logging.Logger) -> Callable:
-    import asyncio
-
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -69,7 +67,7 @@ def logged_async(logger: logging.Logger) -> Callable:
             logger.info("CALL %s args=%s", func.__name__, json.dumps(redact_obj(kwargs), default=str)[:1500])
             try:
                 result = await func(*args, **kwargs)
-            except Exception as exc:
+            except Exception:
                 logger.exception("ERROR %s after %sms", func.__name__,
                                  round((time.monotonic() - started) * 1000, 2))
                 raise

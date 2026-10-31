@@ -281,7 +281,8 @@ def _git(root: Path) -> dict[str, Any]:
             continue
         if out.returncode == 0:
             value = out.stdout.strip()
-            info[key] = len([l for l in value.splitlines() if l.strip()]) if key == "remote_count" else value
+            info[key] = (len([line for line in value.splitlines() if line.strip()])
+                         if key == "remote_count" else value)
     return info
 
 

@@ -7,7 +7,6 @@ synthetic application's defect list; they only know generic invariant types.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -90,7 +89,6 @@ def _create_resource(ctx: ProbeContext, role: str, feature: str,
     operation = create_op(ctx, feature)
     if not operation:
         raise RuntimeError(f"no create endpoint discovered for feature '{feature}'")
-    unique = title or specmod.unique_title()
     payload_overrides = dict(overrides or {})
     field_names = specmod.request_field_names(operation, ctx.spec_doc)
     title_field = next((name for name in field_names
@@ -211,7 +209,6 @@ class ValidationProbe(_RuleProbe):
         operation = create_op(ctx, self.feature, self.keywords)
         if not operation:
             return ProbeResult(False, "", "", infrastructure_error="no create endpoint discovered")
-        title = specmod.unique_title("KH-INVALID")
         overrides = {}
         fields = specmod.request_field_names(operation, ctx.spec_doc)
         if "title" in fields:
@@ -559,7 +556,7 @@ class ResponsiveProbe(_RuleProbe):
                 shot = await executor.screenshot("responsive-overflow")
             evidence = ctx.save_evidence("responsive", {
                 "rule": self.rule_ids, "pages": observations, "screenshot": shot})
-            steps = [f"open the application with a 390px viewport",
+            steps = ["open the application with a 390px viewport",
                      f"inspect {len(observations)} page(s) for horizontal overflow"]
             return ProbeResult(
                 violated=bool(offenders),

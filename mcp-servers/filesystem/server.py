@@ -56,7 +56,7 @@ def _contain(raw: str, must_write: bool = False) -> tuple[Path | None, str]:
     except OSError as exc:
         return None, f"cannot resolve path: {exc}"
     if root not in resolved.parents and resolved != root:
-        return None, f"path escapes the KHUNKHAAR root"
+        return None, "path escapes the KHUNKHAAR root"
     rel = str(resolved.relative_to(root)) if resolved != root else "."
     deny = {str(d).lower() for d in current().get("filesystem", "deny_names", []) or []}
     if resolved.name.lower() in deny or any(part.lower() in deny for part in resolved.parts):

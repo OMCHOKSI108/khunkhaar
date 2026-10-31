@@ -20,7 +20,7 @@ from . import evidence as ev
 from . import netguard, paths
 from .config import Config, current
 from .credentials import resolve as resolve_auth
-from .redaction import is_secret_key, redact_headers, redact_obj, redact_text
+from .redaction import redact_headers, redact_obj, redact_text
 
 MAX_REDIRECTS = 5
 
@@ -173,7 +173,6 @@ def _do_single(spec: RequestSpec, cfg: Config) -> dict[str, Any]:
     timeout = cfg.api_timeout(spec.timeout_seconds)
     kwargs = dict(built["kwargs"])
     open_files = kwargs.pop("_open_files", None)
-    max_bytes = int(cfg.get("api", "max_response_bytes", 5_000_000))
 
     started = time.monotonic()
     hops: list[str] = []

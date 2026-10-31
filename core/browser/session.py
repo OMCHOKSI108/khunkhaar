@@ -12,6 +12,7 @@ handling, and mobile viewport emulation.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
 from playwright.async_api import async_playwright, Error as PlaywrightError

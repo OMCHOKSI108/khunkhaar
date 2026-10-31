@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from core.verification import verifier as verifier_module
 
 

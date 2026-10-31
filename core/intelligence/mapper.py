@@ -234,7 +234,6 @@ def build(root: Path, project_id: str, rules_classifier=None) -> ApplicationMap:
                 app.endpoints.append(endpoint)
             continue
 
-        lines = text.splitlines()
         for pattern in ROUTE_PATTERNS:
             for match in pattern.finditer(text):
                 groups = match.groups()

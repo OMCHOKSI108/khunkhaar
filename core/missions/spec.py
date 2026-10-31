@@ -9,7 +9,6 @@ need a contract report that limitation instead of guessing silently.
 from __future__ import annotations
 
 import copy
-import json
 import uuid
 from typing import Any
 

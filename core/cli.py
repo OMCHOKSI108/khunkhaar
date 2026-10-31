@@ -119,7 +119,7 @@ def _context_prompt(profile: dict) -> str:
         f"KHUNKHAAR QA session for project '{profile['name']}' ({profile['project_id']}).",
         f"Project root: {profile['root']}",
         f"Type: {profile['project_type']}; languages: "
-        f"{', '.join(l['name'] for l in profile['languages'][:6]) or 'unknown'}; "
+        f"{', '.join(item['name'] for item in profile['languages'][:6]) or 'unknown'}; "
         f"frameworks: {', '.join(profile['frameworks'][:8]) or 'none detected'}.",
         f"Full profile: {paths.project_dir(profile['project_id']) / 'project-profile.json'}",
         "Use the khunkhaar-* MCP tools for browser, API, database and evidence work. Browser "
