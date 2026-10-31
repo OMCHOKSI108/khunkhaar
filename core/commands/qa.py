@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 
 from core.shared.target_policy import is_loopback, preflight_target
@@ -181,6 +182,18 @@ def _execute(args: argparse.Namespace, document: dict) -> int:
             print(f"khunkhaar qa: stopped by budget - {exc}")
             _print_run(plan_id, status, orchestrator.summary)
         return 1
+    except KeyboardInterrupt:
+        row = store.get_run(run_id) or {}
+        if row.get("status") == "running":
+            store.finish_run(run_id, "interrupted", "interrupted by the operator")
+        planner.mark(plan_id, "interrupted", run_id=run_id)
+        print("khunkhaar qa: interrupted by the operator; the partial summary was kept.",
+              file=sys.stderr)
+        if args.json:
+            print(json.dumps({"plan_id": plan_id, "plan_status": "interrupted",
+                              "run_id": run_id, "summary": orchestrator.summary},
+                             indent=2, sort_keys=True, default=str))
+        return 130
     except OrchestratorError as exc:
         planner.mark(plan_id, "failed", run_id=run_id)
         print(f"khunkhaar qa: {exc}")

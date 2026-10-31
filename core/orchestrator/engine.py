@@ -353,6 +353,15 @@ class Orchestrator:
                 self.summary["evidence"] = self._persist_summary()
             self._finish_run(status, str(exc))
             raise
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            status = "interrupted"
+            note = "interrupted by the operator"
+            self.summary.setdefault("errors", []).append(note)
+            self.summary["resources"] = self._resources_summary()
+            if self.project_id:
+                self.summary["evidence"] = self._persist_summary()
+            self._finish_run(status, note)
+            raise
         except Exception as exc:
             status = "failed"
             self.summary.setdefault("errors", []).append(f"{type(exc).__name__}: {exc}")
