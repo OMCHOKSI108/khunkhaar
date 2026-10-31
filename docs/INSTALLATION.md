@@ -56,7 +56,7 @@ password from the environment variable named in `config/khunkhaar.yaml`
 ## Verify the installation
 
 ```bash
-khunkhaar --version          # khunkhaar 0.2.0 (root: /home/omchoksi/KHUNKHAAR-QA)
+khunkhaar --version          # khunkhaar 0.3.0 (root: /home/omchoksi/KHUNKHAAR-QA)
 khunkhaar --doctor           # every dependency with status and version
 cd /actual/project && khunkhaar --project-info
 cd /home/omchoksi/KHUNKHAAR-QA

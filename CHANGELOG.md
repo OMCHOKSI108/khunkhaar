@@ -355,7 +355,8 @@ adversarial QA engine (0.2.x), Phase 3 = private, git-aware QA intelligence (0.3
   (`Path` in `core/browser/session.py` teardown annotation), unused imports, dead locals, ambiguous
   loop variable names and placeholder-free f-strings. `ruff check core dashboard mcp-servers tools
   scripts tests` is clean.
-- Version `0.3.0` in `VERSION`; the CLI prints it via `paths.version()`.
+- Version `0.3.0` in `VERSION`, `package.json` and `package-lock.json`; the CLI prints it via
+  `paths.version()`.
 
 ### Validation — P8 (recorded evidence)
 - `pytest tests`: 543 passed in 89.69s. `pytest tests/phase3`: 376 passed in 75.75s.
