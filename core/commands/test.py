@@ -47,10 +47,12 @@ def run(argv: list[str]) -> int:
     group.add_argument("--all", "-a", action="store_true", help="Full-Stack Tester: Codebase + Frontend + Backend + DB")
     group.add_argument("--end-user", "-e", action="store_true", help="End-User Tester: Live Product URL exploratory QA")
     group.add_argument("--swe", "-s", action="store_true", help="SWE & Backend Tester: Codebase + GraphQL/REST APIs + DB")
+    group.add_argument("--rbac", "-b", action="store_true", help="Enterprise RBAC & Multi-Role Lifecycle QA (Employee -> Pod -> Manager -> HR approval chains)")
 
     parser.add_argument("--path", "-p", default="", help="Path to project codebase (default: current directory)")
     parser.add_argument("--target", "-t", default="", help="Target URL under test (e.g. http://localhost:8000)")
     parser.add_argument("--env-file", default="", help="Path to .env or credentials file (optional)")
+    parser.add_argument("--roles-file", default="", help="JSON file with role credentials (e.g. employee, lead, manager, hr)")
     parser.add_argument("--message", "-m", default="", help="Custom initial test instruction")
     parser.add_argument("--run", "-r", action="store_true", help="Run non-interactively via opencode run")
 
@@ -73,6 +75,9 @@ def run(argv: list[str]) -> int:
     elif args.swe:
         agent = "khunkhaar-tester-swe"
         mode_label = "SWE & Backend Tester (Codebase + GraphQL/REST + DB)"
+    elif args.rbac:
+        agent = "khunkhaar-tester-rbac"
+        mode_label = "Enterprise RBAC & Multi-Role Lifecycle Tester (Employee -> Pod -> Manager -> HR)"
     else:
         # Interactive Mode
         print("\n" + "=" * 60)
@@ -82,9 +87,10 @@ def run(argv: list[str]) -> int:
         print("  [1] Tester-all       — Full-Stack QA (Codebase + Frontend + Backend + DB)")
         print("  [2] Tester-end-user  — End-User QA (Live Product URL / Browser journeys)")
         print("  [3] Tester-swe       — Backend & SWE QA (Codebase + GraphQL/REST APIs + DB)")
+        print("  [4] Tester-rbac      — Enterprise RBAC QA (Employee -> Pod -> Manager -> HR approval chains, IDORs, and logic)")
         print("=" * 60)
 
-        choice = _prompt_user("Choose mode (1-3)", default="1")
+        choice = _prompt_user("Choose mode (1-4)", default="1")
         if choice in ("1", "all", "tester-all"):
             agent = "khunkhaar-tester-all"
             mode_label = "Full-Stack Tester"
@@ -94,6 +100,9 @@ def run(argv: list[str]) -> int:
         elif choice in ("3", "swe", "tester-swe"):
             agent = "khunkhaar-tester-swe"
             mode_label = "Backend & SWE Tester"
+        elif choice in ("4", "rbac", "tester-rbac"):
+            agent = "khunkhaar-tester-rbac"
+            mode_label = "Enterprise RBAC & Multi-Role Lifecycle Tester"
         else:
             print("Invalid choice. Exiting.")
             return 2
@@ -103,18 +112,22 @@ def run(argv: list[str]) -> int:
     target_url = args.target
     env_file = args.env_file
 
-    if not codebase_path and agent in ("khunkhaar-tester-all", "khunkhaar-tester-swe"):
+    if not codebase_path and agent in ("khunkhaar-tester-all", "khunkhaar-tester-swe", "khunkhaar-tester-rbac"):
         cwd = str(Path.cwd().resolve())
         codebase_path = _prompt_user("Enter Codebase path", default=cwd)
 
-    if not target_url and agent in ("khunkhaar-tester-all", "khunkhaar-tester-end-user"):
-        target_url = _prompt_user("Enter Target Server/Product URL", default="http://localhost:8000")
+    if not target_url and agent in ("khunkhaar-tester-all", "khunkhaar-tester-end-user", "khunkhaar-tester-rbac"):
+        target_url = _prompt_user("Enter Target Server/Product URL", default="http://localhost:8000/api/graphql")
 
-    if not env_file and agent in ("khunkhaar-tester-all", "khunkhaar-tester-swe"):
+    if not env_file and agent in ("khunkhaar-tester-all", "khunkhaar-tester-swe", "khunkhaar-tester-rbac"):
         default_env = ""
         if codebase_path and (Path(codebase_path) / ".env").is_file():
             default_env = str(Path(codebase_path) / ".env")
         env_file = _prompt_user("Enter .env or credentials file path (optional, press Enter to skip)", default=default_env)
+
+    roles_file = args.roles_file
+    if not roles_file and agent == "khunkhaar-tester-rbac":
+        roles_file = _prompt_user("Enter Roles / Multi-User Credentials JSON path (optional, press Enter to auto-discover)", default="")
 
     # Build initial agent instruction
     agent_instructions = _get_agent_prompt(agent)
@@ -129,13 +142,25 @@ def run(argv: list[str]) -> int:
         parts.append(f"Target URL: {target_url}")
     if env_file and Path(env_file).is_file():
         parts.append(f"Credentials / .env File: {Path(env_file).resolve()}")
+    if roles_file and Path(roles_file).is_file():
+        parts.append(f"Multi-User Roles File: {Path(roles_file).resolve()}")
     if args.message:
         parts.append(f"Instruction: {args.message}")
     else:
-        parts.append(
-            "Instructions: Inspect the codebase schemas/routes, test the live API/GraphQL endpoints, "
-            "verify error handling and edge cases, check database state if applicable, and report all discovered bugs with clear reproduction evidence."
-        )
+        if agent == "khunkhaar-tester-rbac":
+            parts.append(
+                "Instructions: Execute end-to-end multi-role lifecycle tests:\n"
+                "1. Login as an Employee, submit realistic requests (Leave, WFH, Attendance, etc.).\n"
+                "2. Adversarially test if Employee can approve their own request or bypass Pod Lead approval.\n"
+                "3. Step-by-step role approvals: Login as Pod Lead -> approve -> login as Manager -> approve -> login as HR -> final approve.\n"
+                "4. Test horizontal IDOR: Check if Employee A can view Employee B's private data.\n"
+                "5. Verify final status, timestamps, and balance deductions in the database via khunkhaar-database."
+            )
+        else:
+            parts.append(
+                "Instructions: Inspect the codebase schemas/routes, test the live API/GraphQL endpoints, "
+                "verify error handling and edge cases, check database state if applicable, and report all discovered bugs with clear reproduction evidence."
+            )
 
     initial_prompt = "\n".join(parts)
     workdir = str(Path(codebase_path).resolve()) if codebase_path and Path(codebase_path).is_dir() else str(Path.cwd())
