@@ -95,6 +95,8 @@ REGISTRY: tuple[CommandSpec, ...] = (
           "core.commands.retention:plan"),
     _spec("retention apply", "delete eligible evidence (requires --confirm)",
           "core.commands.retention:apply"),
+    _spec("test", "interactive QA runner with OpenCode agents (tester-all, tester-end-user, tester-swe)",
+          "core.commands.test:run"),
 )
 
 _INDEX: dict[tuple[str, ...], CommandSpec] = {spec.path: spec for spec in REGISTRY}

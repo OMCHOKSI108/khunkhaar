@@ -56,6 +56,12 @@ PHASE 2 COMMANDS
   khunkhaar verify              independently re-run unverified findings
   khunkhaar report              write JSON + Markdown reports from the findings store
 
+AI QA COMMANDS (OpenCode LLM Harness)
+  khunkhaar test                interactive QA agent wizard (all, end-user, swe)
+  khunkhaar test --all          Full-Stack: Codebase + Frontend + Backend + DB
+  khunkhaar test --end-user     End-User: Live Product URL / UI journeys
+  khunkhaar test --swe          SWE & Backend: Codebase + GraphQL/REST + DB
+
 PHASE 3 COMMANDS
 {_PHASE3_HELP}
 
@@ -539,6 +545,10 @@ def main(argv: list[str]) -> int:
     if head in ("-v", "--version"):
         print(f"khunkhaar {paths.version()}  (root: {paths.kh_root()})")
         return 0
+    if head in ("--tester-all", "--tester-end-user", "--tester-swe"):
+        from core.commands import test as cmd_test
+        mapping = {"--tester-all": "--all", "--tester-end-user": "--end-user", "--tester-swe": "--swe"}
+        return cmd_test.run([mapping[head]] + args[1:])
     if head == "--doctor":
         return cmd_doctor("--json" in args)
     if head == "--project-info":
