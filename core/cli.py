@@ -238,6 +238,8 @@ def _run(cmd: list[str], timeout: int = 10) -> tuple[int, str]:
 def _check_browser() -> list[dict]:
     checks = []
     try:
+        from core.browser.session import ensure_browser_cache_path
+        ensure_browser_cache_path()
         from playwright.sync_api import sync_playwright
     except Exception as exc:  # pragma: no cover - import failure means the venv is broken
         return [{"tool": "playwright", "status": "missing", "version": None, "detail": str(exc)}]

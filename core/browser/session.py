@@ -11,6 +11,7 @@ handling, and mobile viewport emulation.
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,23 @@ from playwright.async_api import async_playwright, Error as PlaywrightError
 from core.shared import evidence as ev
 from core.shared import paths
 from core.shared.redaction import redact_text
+
+
+def ensure_browser_cache_path() -> None:
+    """Ensure Playwright discovers installed browser binaries if XDG_CACHE_HOME is relocated."""
+    if "PLAYWRIGHT_BROWSERS_PATH" in os.environ:
+        return
+    home_cache = Path.home() / ".cache" / "ms-playwright"
+    xdg_env = os.environ.get("XDG_CACHE_HOME")
+    if xdg_env and home_cache.is_dir():
+        xdg_cache = Path(xdg_env).expanduser() / "ms-playwright"
+        try:
+            home_count = len(list(home_cache.iterdir()))
+            xdg_count = len(list(xdg_cache.iterdir())) if xdg_cache.is_dir() else 0
+            if home_count > xdg_count:
+                os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home_cache)
+        except OSError:
+            pass
 
 # Values read from the installed playwright-core device descriptors
 # (`node -e "console.log(require('playwright-core').devices)"`). The Python package has no
@@ -87,6 +105,7 @@ class BrowserSession:
             raise SessionError(f"unknown engine '{engine}' (chromium, firefox, webkit)")
 
         self.run_id = run_id or ev.new_run_id("browser")
+        ensure_browser_cache_path()
         self._pw = await async_playwright().start()
         launcher = getattr(self._pw, engine)
         try:
