@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -24,6 +25,19 @@ def _prompt_user(prompt: str, default: str = "") -> str:
         sys.exit(130)
 
 
+def _get_agent_prompt(agent_name: str) -> str:
+    cfg_file = Path.home() / ".config" / "opencode" / "opencode.json"
+    if cfg_file.is_file():
+        try:
+            data = json.loads(cfg_file.read_text(encoding="utf-8"))
+            agent_cfg = data.get("agent", {}).get(agent_name, {})
+            if agent_cfg and agent_cfg.get("prompt"):
+                return str(agent_cfg["prompt"])
+        except Exception:
+            pass
+    return f"You are the {agent_name} QA agent. Use khunkhaar MCP servers to inspect and test the application."
+
+
 def run(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="khunkhaar test",
@@ -38,6 +52,7 @@ def run(argv: list[str]) -> int:
     parser.add_argument("--target", "-t", default="", help="Target URL under test (e.g. http://localhost:8000)")
     parser.add_argument("--env-file", default="", help="Path to .env or credentials file (optional)")
     parser.add_argument("--message", "-m", default="", help="Custom initial test instruction")
+    parser.add_argument("--run", "-r", action="store_true", help="Run non-interactively via opencode run")
 
     args = parser.parse_args(argv)
 
@@ -102,32 +117,40 @@ def run(argv: list[str]) -> int:
         env_file = _prompt_user("Enter .env or credentials file path (optional, press Enter to skip)", default=default_env)
 
     # Build initial agent instruction
-    parts = [f"Act as {agent} ({mode_label})."]
+    agent_instructions = _get_agent_prompt(agent)
+    parts = [
+        agent_instructions,
+        "",
+        f"=== ACTIVE QA MISSION: {mode_label.upper()} ===",
+    ]
     if codebase_path:
-        parts.append(f"Codebase path: {Path(codebase_path).resolve()}")
+        parts.append(f"Codebase Path: {Path(codebase_path).resolve()}")
     if target_url:
         parts.append(f"Target URL: {target_url}")
     if env_file and Path(env_file).is_file():
-        parts.append(f"Credentials / .env file provided at: {Path(env_file).resolve()}")
+        parts.append(f"Credentials / .env File: {Path(env_file).resolve()}")
     if args.message:
-        parts.append(f"User Goal: {args.message}")
+        parts.append(f"Instruction: {args.message}")
     else:
         parts.append(
-            "Goal: Autonomously explore the application, verify running services (start them if needed), "
-            "exercise the API/GraphQL endpoints and browser UI, test for edge cases, and report all discovered bugs with reproduction evidence."
+            "Instructions: Inspect the codebase schemas/routes, test the live API/GraphQL endpoints, "
+            "verify error handling and edge cases, check database state if applicable, and report all discovered bugs with clear reproduction evidence."
         )
 
     initial_prompt = "\n".join(parts)
-
     workdir = str(Path(codebase_path).resolve()) if codebase_path and Path(codebase_path).is_dir() else str(Path.cwd())
 
     print("\n" + "-" * 60)
-    print(f"Launching OpenCode with Agent: {agent}")
+    print(f"Launching OpenCode with Persona: {agent}")
+    print(f"Target URL: {target_url or 'N/A'}")
     print(f"Working Directory: {workdir}")
-    print("-" * 60)
+    print("-" * 60 + "\n")
 
-    # Launch opencode with the agent
-    cmd = [binary, "--standalone", "--agent", agent, "--prompt", initial_prompt, workdir]
+    if args.run:
+        cmd = [binary, "run", "--agent", agent, initial_prompt]
+    else:
+        # Interactive TUI mode (top-level opencode takes --prompt and directory)
+        cmd = [binary, "--standalone", "--prompt", initial_prompt, workdir]
 
     try:
         os.chdir(workdir)
