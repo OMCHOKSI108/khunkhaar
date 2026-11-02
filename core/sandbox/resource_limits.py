@@ -20,8 +20,10 @@ def configure_rlimits(limits: ResourceLimits) -> Callable[[], None]:
             pass
 
         try:
-            # 2. Maximum processes (fork bomb protection)
-            resource.setrlimit(resource.RLIMIT_NPROC, (limits.max_processes, limits.max_processes))
+            # 2. Maximum processes (fork bomb protection accommodating threads)
+            cur_soft, cur_hard = resource.getrlimit(resource.RLIMIT_NPROC)
+            target_nproc = min(max(limits.max_processes, 1024), cur_hard)
+            resource.setrlimit(resource.RLIMIT_NPROC, (target_nproc, cur_hard))
         except (ValueError, OSError):
             pass
 
