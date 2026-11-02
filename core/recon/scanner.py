@@ -179,3 +179,38 @@ def extract_rest_and_ui_routes(root: Path) -> list[EndpointDef]:
             pass
 
     return endpoints
+
+
+def extract_database_models(root: Path) -> list[ModelDef]:
+    """Extract database models from Sequelize, Prisma, Mongoose, and Python ORMs."""
+    models: list[ModelDef] = []
+
+    # Prisma
+    for prisma_file in root.glob("**/schema.prisma"):
+        try:
+            content = prisma_file.read_text(encoding="utf-8", errors="ignore")
+            for m in re.finditer(r'model\s+(\w+)\s*\{([^}]+)\}', content):
+                name = m.group(1)
+                body = m.group(2)
+                fields = [line.strip().split()[0] for line in body.splitlines() if line.strip() and not line.strip().startswith("//") and not line.strip().startswith("@@")]
+                models.append(ModelDef(name=name, fields=fields[:20], file_path=str(prisma_file.relative_to(root))))
+        except Exception:
+            pass
+
+    # Sequelize & JavaScript/TypeScript models
+    for mfile in root.rglob("*models*/**/*.[jt]s"):
+        if any(part in SKIP_SCAN_DIRS for part in mfile.parts):
+            continue
+        try:
+            content = mfile.read_text(encoding="utf-8", errors="ignore")
+            match = re.search(r'sequelize\.define\(\s*[\'"](\w+)[\'"]', content)
+            if match:
+                models.append(ModelDef(name=match.group(1), file_path=str(mfile.relative_to(root))))
+            else:
+                class_match = re.search(r'class\s+(\w+)\s+extends\s+(?:Model|Sequelize\.Model)', content)
+                if class_match:
+                    models.append(ModelDef(name=class_match.group(1), file_path=str(mfile.relative_to(root))))
+        except Exception:
+            pass
+
+    return models
