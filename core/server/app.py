@@ -33,13 +33,16 @@ def create_web_app() -> FastAPI:
             return HTMLResponse("<h1>Project Not Found</h1>", status_code=404)
         messages = store.get_chat_messages(project_id)
         checklist = store.get_checklist(project_id)
+        from core.server import store_logs
+        logs = store_logs.get_project_logs(project_id, limit=80)
         return templates.TemplateResponse(request, "project.html", {
-            "project": proj, "messages": messages, "checklist": checklist
+            "project": proj, "messages": messages, "checklist": checklist, "logs": logs
         })
 
     @app.get("/logs", response_class=HTMLResponse)
     async def centralized_logs(request: Request):
-        history = logger.get_recent_logs(limit=150)
+        from core.server import store_logs
+        history = store_logs.get_all_logs(limit=200)
         return templates.TemplateResponse(request, "logs.html", {"history": history})
 
     @app.get("/api/logs/stream")

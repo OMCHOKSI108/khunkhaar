@@ -235,12 +235,18 @@
         <span id="sseStatusBadge" style="font-size: 0.72rem; color: #10b981; font-family: 'JetBrains Mono';">● CONNECTED</span>
       </div>
       <div id="logTerminal" style="
-        height: 120px; overflow-y: auto; background: #000000; border: 1px solid #141414;
+        height: 140px; overflow-y: auto; background: #000000; border: 1px solid #141414;
         border-radius: 8px; padding: 0.6rem 0.85rem; font-family: 'JetBrains Mono'; font-size: 0.78rem;
-        color: #10b981; line-height: 1.45;
+        line-height: 1.45;
       ">
-        > [system] Live telemetry stream ready. Target: {{ project.target_urls[0] if project.target_urls else 'http://localhost:8000' }}
-        > [agent] Pikachu is standing by. Click 'TEST PROJECT' to fire reconnaissance.
+        {% for l in logs %}
+        <div style="color: {% if l.level == 'FAIL' %}#ef4444{% elif l.level == 'PASS' %}#10b981{% elif l.level == 'TEST' %}#facc15{% else %}#10b981{% endif %};">
+          > [{{ l.timestamp }}] {{ l.message }}
+        </div>
+        {% else %}
+        <div style="color: #10b981;">> [system] Live telemetry stream ready. Target: {{ project.target_urls[0] if project.target_urls else 'http://localhost:8000' }}</div>
+        <div style="color: #10b981;">> [agent] Pikachu is standing by. Click 'TEST PROJECT' to fire reconnaissance.</div>
+        {% endfor %}
       </div>
     </div>
 
@@ -452,6 +458,16 @@
     stage.textContent = `Executing ${selected.length} tests against API target...`;
     bar.style.width = '20%';
 
+    selected.forEach(id => {
+      const badge = document.getElementById(`status-${id}`);
+      if (badge) {
+        badge.textContent = 'RUNNING';
+        badge.style.background = 'rgba(250,204,21,0.15)';
+        badge.style.color = '#facc15';
+        badge.style.border = '1px solid #facc15';
+      }
+    });
+
     try {
       const res = await fetch(`/api/projects/${projectId}/approve`, {
         method: 'POST',
@@ -468,15 +484,22 @@
       document.getElementById('pikaBadge').style.color = '#10b981';
       btn.textContent = '✅ Tests Completed';
       btn.disabled = false;
+
+      selected.forEach(id => {
+        const badge = document.getElementById(`status-${id}`);
+        if (badge) {
+          badge.textContent = 'PASSED';
+          badge.style.background = 'rgba(16,185,129,0.15)';
+          badge.style.color = '#10b981';
+          badge.style.border = '1px solid #10b981';
+        }
+      });
     } catch (err) {
       stage.textContent = `Test run error: ${err}`;
       btn.disabled = false;
       btn.textContent = '⚡ RETRY TESTS';
     } finally {
       pika.classList.remove('pika-firing');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1200);
     }
   }
 </script>

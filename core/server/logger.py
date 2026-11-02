@@ -23,6 +23,12 @@ def record_log(project_id: str, message: str, level: str = "INFO") -> dict[str, 
     if len(LOG_HISTORY) > MAX_HISTORY:
         LOG_HISTORY.pop(0)
 
+    try:
+        from core.server import store_logs
+        store_logs.save_log(project_id, entry["level"], message, entry["timestamp"])
+    except Exception:
+        pass
+
     # Dispatch to project-specific queues
     for q in PROJECT_LOG_QUEUES.get(project_id, []):
         q.put_nowait(entry)
