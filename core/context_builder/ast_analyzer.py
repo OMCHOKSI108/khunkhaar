@@ -47,6 +47,10 @@ JS_ROUTE_RE = re.compile(r"(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['
 JS_IMPORT_RE = re.compile(r"import\s+.*?from\s+['\"]([^'\"]+)['\"]|require\(['\"]([^'\"]+)['\"]\)")
 
 
+JS_METHOD_RE = re.compile(r"^\s*(?:async\s+)?([A-Za-z0-9_$]+)\s*\([^)]*\)\s*(?::\s*[^{]+)?\s*\{")
+JS_KEYWORDS = {"if", "for", "while", "switch", "catch", "function", "return"}
+
+
 def parse_js_ts_file(project_id: str, file_path: Path, rel_path: str) -> tuple[list[CodeSymbol], list[CodeRelationship]]:
     symbols: list[CodeSymbol] = []
     rels: list[CodeRelationship] = []
@@ -57,8 +61,12 @@ def parse_js_ts_file(project_id: str, file_path: Path, rel_path: str) -> tuple[l
 
     for i, line in enumerate(lines, 1):
         m_func = JS_FUNC_RE.search(line) or JS_CONST_FUNC_RE.search(line)
+        m_meth = JS_METHOD_RE.search(line) if not m_func else None
         if m_func:
             symbols.append(CodeSymbol(str(uuid.uuid4())[:8], project_id, m_func.group(1), "function",
+                                      rel_path, i, min(i + 40, len(lines)), line.strip()))
+        elif m_meth and m_meth.group(1) not in JS_KEYWORDS:
+            symbols.append(CodeSymbol(str(uuid.uuid4())[:8], project_id, m_meth.group(1), "method",
                                       rel_path, i, min(i + 40, len(lines)), line.strip()))
         m_cls = JS_CLASS_RE.search(line)
         if m_cls:
