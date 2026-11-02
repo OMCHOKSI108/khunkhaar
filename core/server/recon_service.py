@@ -38,7 +38,11 @@ async def execute_project_recon(
         push_log(project_id, f"🔍 Detected Frameworks: [{frameworks_str}], Language: {recon.primary_language}")
         await asyncio.sleep(0.5)
         push_log(project_id, f"📊 AST Crawl Complete: Discovered {len(endpoints)} endpoints and {len(models)} DB models.")
+        from core.server import vector_store
+        vec_chunks = vector_store.index_codebase_chunks(project_id, codebase_path)
+        push_log(project_id, f"🧠 [Codebase RAG] Embedded & indexed {vec_chunks} code chunks into SQLite Vector DB.")
     else:
+
         push_log(project_id, "⚠️ [Notice] Local directory not mapped; synthesizing invariants from context notes and target URLs.")
         await asyncio.sleep(0.6)
 

@@ -117,39 +117,32 @@ async def run_single_test_route(project_id: str, test_id: str):
 
 @router.post("/{project_id}/auth/suggest")
 async def suggest_auth_config(project_id: str):
-    """Draft an auth.db_mint config block from the project's own schema/auth source via the
-    configured LLM harness. Returns a suggestion only - nothing is written to
-    config/khunkhaar.yaml; the operator reviews and applies it manually."""
     proj = store.get_project(project_id)
     if not proj:
         return JSONResponse({"error": "Project not found"}, status_code=404)
-    from core.server import engine_bridge
-    from core.server.path_resolver import resolve_codebase_path
-
-    codebase_path = resolve_codebase_path(proj.root_path)
+    from core.server import engine_bridge, path_resolver
+    codebase_path = path_resolver.resolve_codebase_path(proj.root_path)
     if not codebase_path:
-        return JSONResponse({"error": "Project root_path is not a resolvable local directory"}, status_code=400)
-
-    push_log(project_id, "🔎 Gathering schema/auth source for LLM-assisted auth config draft...")
+        return JSONResponse({"error": "Invalid root path"}, status_code=400)
     app_map = engine_bridge.build_app_map(codebase_path)
     schema_text = engine_bridge.gather_auth_schema_text(codebase_path, app_map)
-    if not schema_text:
-        push_log(project_id, "⚠️ No schema/auth files found to infer from.", level="WARN")
-        return {"status": "empty", "draft": {}}
-
-    draft = agent.suggest_auth_config(schema_text)
-    if not draft:
-        push_log(project_id, "⚠️ LLM auth config draft failed or was unparseable.", level="WARN")
-        return {"status": "failed", "draft": {}}
-
-    push_log(project_id, f"✅ Drafted auth.db_mint with {len(draft.get('roles') or [])} role(s) "
-                        f"- review before enabling in config/khunkhaar.yaml.")
-    return {"status": "ok", "draft": draft}
+    draft = agent.suggest_auth_config(schema_text) if schema_text else {}
+    return {"status": "ok" if draft else "empty", "draft": draft}
 
 
 @router.post("/{project_id}/approve")
 async def approve_and_test(project_id: str, payload: dict):
-    selected_ids = payload.get("selected_ids", [])
     from core.server import test_runner
-    res = await test_runner.execute_test_pipeline(project_id, selected_ids)
-    return res
+    return await test_runner.execute_test_pipeline(project_id, payload.get("selected_ids", []))
+
+
+@router.post("/{project_id}/rag/search")
+async def rag_code_search(project_id: str, payload: dict):
+    """Retrieve semantically relevant code chunks via SQLite Vector DB."""
+    query = payload.get("query", "").strip()
+    if not query:
+        return {"status": "ok", "results": []}
+    from core.server import vector_store
+    results = vector_store.search_code_context(project_id, query, top_k=payload.get("top_k", 5))
+    return {"status": "ok", "query": query, "results": results}
+
