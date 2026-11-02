@@ -143,3 +143,39 @@ def extract_graphql_endpoints(root: Path) -> list[EndpointDef]:
                     description=f"{kind} returning {return_type}. Args: {args_raw.strip()}" if args_raw.strip() else f"{kind} returning {return_type}"
                 ))
     return endpoints
+
+
+def extract_rest_and_ui_routes(root: Path) -> list[EndpointDef]:
+    """Extract REST API endpoints, Next.js routes, and Streamlit UI pages."""
+    endpoints: list[EndpointDef] = []
+    # Streamlit pages
+    for page_path in root.glob("pages/*.py"):
+        endpoints.append(EndpointDef(
+            name=page_path.stem,
+            path=f"/pages/{page_path.stem}",
+            method="UI_PAGE",
+            handler=str(page_path.relative_to(root)),
+            description=f"Streamlit page: {page_path.stem}"
+        ))
+
+    # Next.js App router routes
+    for route_file in root.glob("**/app/**/route.[jt]s"):
+        if any(part in SKIP_SCAN_DIRS for part in route_file.parts):
+            continue
+        rel = route_file.relative_to(root)
+        url_path = "/" + "/".join(p for p in rel.parts if p not in ("app", "route.ts", "route.js"))
+        try:
+            content = route_file.read_text(encoding="utf-8", errors="ignore")
+            for m in ["GET", "POST", "PUT", "DELETE", "PATCH"]:
+                if f"export async function {m}" in content or f"export function {m}" in content:
+                    endpoints.append(EndpointDef(
+                        name=f"{m} {url_path}",
+                        path=url_path,
+                        method=m,
+                        handler=str(rel),
+                        description=f"Next.js App Route handler {m}"
+                    ))
+        except Exception:
+            pass
+
+    return endpoints
