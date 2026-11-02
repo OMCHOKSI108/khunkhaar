@@ -1,24 +1,12 @@
-"""Mints active session tokens for multi-role testing against a project's own user table.
-
-Two sources for the schema + connection details, tried in order:
-
-1. Per-project auto-discovery (core/server/store.web_project_auth, populated by
-   engine_bridge.auto_configure_auth at recon time via the LLM harness) - secret VALUES are
-   re-read live from that project's own .env (core/server/project_env.py) on every call, never
-   persisted. This is what makes fully agent-driven multi-project testing possible without the
-   operator hand-editing config/khunkhaar.yaml per project.
-2. The manual/global auth.db_mint block in config/khunkhaar.yaml, for when auto-discovery is
-   off or didn't find a usable schema - secrets come from KHUNKHAAR's own environment.
-
-Either way the schema (table/column/role names) is config-driven, never hardcoded to one
-project's layout.
-"""
+"""Mints active session tokens for multi-role testing against a project's user table.
+Tries per-project auto-discovery first, then global auth.db_mint in khunkhaar.yaml."""
 from __future__ import annotations
 
 import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -26,7 +14,7 @@ from typing import Any
 
 from core.database.adapters import mask_ident, profile_by_name
 from core.server import project_env, store
-from core.server.path_resolver import resolve_codebase_path
+from core.server.path_resolver import resolve_codebase_path, resolve_docker_host
 from core.shared.config import current
 
 TOKEN_CACHE: dict[str, dict[str, str]] = {}
@@ -54,14 +42,13 @@ def _connection_params_for_project(project_id: str | None, codebase_dir: str | N
     if root is None:
         return None
     env = project_env.read_env_file(root)
-    password_key = schema.get("password_env_key")
-    jwt_key = schema.get("jwt_secret_env_key")
-    password = env.get(password_key) if password_key else None
-    jwt_secret = env.get(jwt_key) if jwt_key else None
+    pwd_k, jwt_k = schema.get("password_env_key"), schema.get("jwt_secret_env_key")
+    password = env.get(pwd_k) if pwd_k else None
+    jwt_secret = env.get(jwt_k) if jwt_k else None
     if not password or not jwt_secret:
         return None
     return {
-        "schema": schema, "host": schema.get("host") or "127.0.0.1",
+        "schema": schema, "host": resolve_docker_host(schema.get("host")),
         "port": int(schema.get("port") or 5432), "database": schema.get("database"),
         "user": schema.get("user"), "password": password, "jwt_secret": jwt_secret,
         "cache_key": f"project:{project_id}",
@@ -81,7 +68,7 @@ def _connection_params_global() -> dict[str, Any] | None:
     if not password or not jwt_secret:
         return None
     return {
-        "schema": mint_cfg, "host": profile.get("host", "127.0.0.1"),
+        "schema": mint_cfg, "host": resolve_docker_host(profile.get("host")),
         "port": int(profile.get("port", 5432)), "database": profile.get("database"),
         "user": profile.get("user"), "password": password, "jwt_secret": jwt_secret,
         "cache_key": f"global:{profile.get('name')}",
@@ -106,7 +93,7 @@ def _mint_from_params(params: dict[str, Any]) -> dict[str, str]:
 
     tokens: dict[str, str] = {}
     try:
-        import psycopg2
+        import psycopg as psycopg2
 
         conn = psycopg2.connect(
             host=str(params["host"]), port=int(params["port"]), dbname=params.get("database"),
@@ -117,26 +104,32 @@ def _mint_from_params(params: dict[str, Any]) -> dict[str, str]:
             value, key = entry.get("value"), entry.get("key")
             if not value or not key:
                 continue
-            cur.execute(
-                f"SELECT {id_column} FROM {users_table} WHERE {role_column} = %s{active_sql} LIMIT 1",
-                (value,),
-            )
-            row = cur.fetchone()
-            if not row:
-                continue
-            user_id = row[0]
-            token = _mint_jwt(user_id, params["jwt_secret"], claim_key)
-            if session_table_sql:
+            try:
                 cur.execute(
-                    f"INSERT INTO {session_table_sql} (id, {session_fk}, {session_token_col}, "
-                    f"created_at, updated_at) VALUES (gen_random_uuid(), %s, %s, NOW(), NOW())",
-                    (user_id, token),
+                    f"SELECT {id_column} FROM {users_table} WHERE {role_column} = %s{active_sql} LIMIT 1",
+                    (value,),
                 )
-            tokens[key] = token
-            tokens[str(value).lower()] = token
-        conn.commit()
+                row = cur.fetchone()
+                if not row:
+                    conn.commit()
+                    continue
+                user_id = row[0]
+                token = _mint_jwt(user_id, params["jwt_secret"], claim_key)
+                if session_table_sql:
+                    cur.execute(
+                        f"INSERT INTO {session_table_sql} (id, {session_fk}, {session_token_col}, "
+                        f"created_at, updated_at) VALUES (gen_random_uuid(), %s, %s, NOW(), NOW())",
+                        (user_id, token),
+                    )
+                tokens[key] = token
+                tokens[str(value).lower()] = token
+                conn.commit()
+            except Exception as role_exc:
+                conn.rollback()
+                logging.getLogger(__name__).warning("auth token minting skipped %r: %s", value, role_exc)
         conn.close()
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).warning("auth token minting failed: %s: %s", type(exc).__name__, exc)
         return {}
     return tokens
 
