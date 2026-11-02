@@ -74,11 +74,65 @@ database:
       user: null                   # must be supplied per call, never guessed from .env
       read_only: true
       enabled: false               # opt-in: pointing QA at a real cluster is deliberate
+    # lw-hub-main-server's own local dev Postgres (src/config/config.js + .env), registered as
+    # project 8f78743c. read_only here gates PostgresAdapter's own queries (the DB evidence
+    # check in engine_bridge._db_state_note); the auth.db_mint harvester below uses this
+    # profile's host/port/db/user only, over its own separate write-capable connection, because
+    # minting a session requires inserting an access_tokens row - this profile being read_only
+    # does not block that, by design (see core/server/auth_harvester.py).
+    - name: lwhub_dev
+      kind: postgresql
+      host: 127.0.0.1
+      port: 5432
+      database: lwhub_dev
+      user: postgres
+      password_env: LWHUB_DB_PASSWORD
+      read_only: true
+      enabled: true
 
 auth:
   # Named profiles an agent may reference without ever seeing the secret.
   # Add: - { name: staging_api, env_var: STAGING_API_TOKEN, header: Authorization, scheme: Bearer }
   profiles: []
+  # Dynamic multi-role session minting for projects whose test users already exist in a
+  # database table (e.g. a `users` table with a role column) rather than behind a static
+  # token.
+  db_mint:
+    # Fully agent-driven mode: on recon, KHUNKHAAR infers each registered project's own
+    # users-table schema via the LLM harness (core/server/agent.suggest_auth_config) and
+    # caches it per-project (core/server/store.web_project_auth) - no manual YAML edit per
+    # project. Secret VALUES (DB password, JWT secret) are re-read live from that project's own
+    # .env at every token mint (core/server/project_env.py) and never written to KHUNKHAAR's
+    # config, SQLite or logs. This is an explicit, narrower exception to KHUNKHAAR's normal
+    # "never read a project's .env" rule - it exists because the operator asked for fully
+    # agent-driven multi-role testing. Set to false to require the manual block below instead.
+    auto_discover_from_project_env: true
+    # Manual/global override, used when a project can't be auto-discovered (e.g. no LLM harness
+    # configured) or the operator wants to pin an exact schema. Disabled by default; a project
+    # opts in and describes its own schema here - nothing below is specific to any one project.
+    enabled: false
+    database_profile: null       # name of a profile under database.profiles
+    jwt_secret_env: "JWT_SECRET" # env var holding the HMAC secret the target app verifies with
+    users_table: "users"
+    id_column: "id"
+    email_column: "email"
+    role_column: "role"
+    active_column: "is_active"   # set to null if the table has no active/enabled flag
+    claim_user_id: "userId"      # JWT payload key the target app reads the user id from
+    roles: []
+    # e.g. - { value: "ADMIN", key: "admin" }
+    session_table: null          # e.g. "access_tokens"; null = stateless JWT, no DB write
+    session_user_fk: "user_id"
+    session_token_column: "access_token"
+
+# Checklist/mission generation for the live dashboard test pipeline.
+missions:
+  # Upper bound on how many checklist items a single recon pass may generate. Scales with the
+  # number of discovered endpoints x configured roles; this only stops runaway output on very
+  # large APIs, it is not a per-category slice like "first 12 endpoints". lw-hub-main-server's
+  # full uncapped matrix is 467 items (3 roles x ~100 endpoints + unauthenticated + 8 documented
+  # business rules); 600 leaves headroom as the app grows.
+  max_total: 600
 
 browser:
   headless: true
