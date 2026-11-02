@@ -10,6 +10,7 @@ from core.context_builder import (
     graph_store,
     hybrid_search,
     scanner,
+    semantic_chunker,
 )
 from core.context_builder.assembler import assemble_context as _assemble
 from core.context_builder.models import AssembledContext, CodeRelationship, CodeSymbol, SearchResult
@@ -21,11 +22,9 @@ def build_full_project_context(project_id: str, raw_codebase_path: str) -> dict[
     if not root or not root.exists():
         return {"error": f"Invalid codebase path: {raw_codebase_path}"}
 
-    # 1. Scan directory & frameworks
     files = scanner.scan_directory(root)
     fw_info = scanner.detect_frameworks_and_deps(root)
 
-    # 2. Extract AST symbols and relationships
     all_symbols: list[CodeSymbol] = []
     all_rels: list[CodeRelationship] = []
     for f in files:
@@ -33,25 +32,33 @@ def build_full_project_context(project_id: str, raw_codebase_path: str) -> dict[
         all_symbols.extend(syms)
         all_rels.extend(rels)
 
-    # 3. Store Graph
     graph_store.save_symbols(project_id, all_symbols)
     graph_store.save_relationships(project_id, all_rels)
 
-    # 4. Ingest Vectors
-    vector_store.index_codebase_chunks(project_id, root)
-
-    # 5. Generate Markdown Documentation
     proj = store.get_project(project_id)
     pname = proj.name if proj else "Project"
+
+    # Contextual AST-Aware Chunking & Unique Context Registration in Main DB
+    context_id = vector_store.create_project_context(
+        project_id, pname, len(all_symbols), fw_info.get("frameworks", [])
+    )
+    all_chunks: list[dict[str, Any]] = []
+    for f in files[:120]:
+        chunks = semantic_chunker.chunk_file_by_ast(
+            pname, Path(f.path), f.relative_path, all_symbols, fw_info.get("dependencies")
+        )
+        all_chunks.extend(chunks)
+    vector_store.index_semantic_chunks(project_id, context_id, all_chunks)
+
     doc_p = doc_generator.generate_project_md(pname, files, fw_info)
     doc_api = doc_generator.generate_api_md(pname, all_symbols)
     doc_db = doc_generator.generate_database_md(pname, store.get_project_auth_config(project_id))
     doc_generator.write_context_directory(root, [doc_p, doc_api, doc_db])
 
     return {
-        "status": "success", "files_indexed": len(files),
+        "status": "success", "context_id": context_id, "files_indexed": len(files),
         "symbols_extracted": len(all_symbols), "relationships_recorded": len(all_rels),
-        "frameworks": fw_info.get("frameworks", []),
+        "chunks_embedded": len(all_chunks), "frameworks": fw_info.get("frameworks", []),
     }
 
 
