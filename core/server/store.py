@@ -108,6 +108,13 @@ def get_project(project_id: str) -> ProjectRecord | None:
         )
 
 
+def delete_project(project_id: str) -> None:
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM web_projects WHERE id = ?", (project_id,))
+        conn.execute("DELETE FROM web_chat WHERE project_id = ?", (project_id,))
+        conn.execute("DELETE FROM web_checklists WHERE project_id = ?", (project_id,))
+
+
 def add_chat_message(msg: ChatMessage) -> None:
     with _get_conn() as conn:
         conn.execute(

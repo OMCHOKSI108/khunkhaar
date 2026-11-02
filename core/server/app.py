@@ -60,6 +60,11 @@ def create_web_app() -> FastAPI:
         store.save_project(proj)
         return {"status": "ok", "project": proj}
 
+    @app.delete("/api/projects/{project_id}")
+    async def delete_project(project_id: str):
+        store.delete_project(project_id)
+        return {"status": "deleted", "id": project_id}
+
     @app.post("/api/projects/{project_id}/context")
     async def update_context(project_id: str, payload: dict):
         desc = payload.get("description", "")
