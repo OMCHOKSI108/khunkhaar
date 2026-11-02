@@ -16,6 +16,13 @@ api:
     # Disposable Phase 2 synthetic application (tests/fixtures/vulnapp).
     - "127.0.0.1:8740"
     - "localhost:8740"
+    # Local developer environments & applications
+    - "127.0.0.1:8000"
+    - "localhost:8000"
+    - "127.0.0.1:8001"
+    - "localhost:8001"
+    - "127.0.0.1:3000"
+    - "localhost:3000"
   # Never reachable regardless of the allowlist (cloud metadata / SSRF uplift).
   denied_hosts:
     - "169.254.169.254"
