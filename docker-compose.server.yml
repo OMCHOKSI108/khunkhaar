@@ -1,1 +1,24 @@
-docker-compose.yml
+services:
+  khunkhaar-server:
+    build: .
+    container_name: khunkhaar-qa-server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8899}:8899"
+    environment:
+      - KHUNKHAAR_HARNESS=${KHUNKHAAR_HARNESS:-cloudflare}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - CF_API_TOKEN=${CF_API_TOKEN}
+      - CF_ACCOUNT_ID=${CF_ACCOUNT_ID}
+      # Must match the host side of the /workspace mount below, so host<->container paths
+      # entered in the dashboard resolve correctly.
+      - KHUNKHAAR_HOST_WORKSPACE=${WORKSPACE_DIR:-~/workspace}
+    volumes:
+      - ./data:/app/data
+      - ./evidence:/app/evidence
+      - ./reports:/app/reports
+      # Host directory containing the project(s) to test. Set WORKSPACE_DIR in .env to your
+      # own path; defaults to ~/workspace.
+      - ${WORKSPACE_DIR:-~/workspace}:/workspace:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
