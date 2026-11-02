@@ -411,32 +411,46 @@
 
   // Pikachu Thunderbolt Fire & Test Trigger
   async function fireThunderboltAndTest() {
-    await saveContext();
     const btn = document.getElementById('btnTestProject');
     btn.disabled = true;
+    btn.style.opacity = '0.6';
+    btn.style.cursor = 'wait';
     btn.textContent = '⚡ CRAWLING CODEBASE & GATHERING TESTS...';
+
+    try {
+      await saveContext();
+    } catch (e) {
+      console.warn('saveContext non-fatal error:', e);
+    }
     
     // Trigger Pikachu Fire Animation
     const pika = document.getElementById('pikaSprite');
-    pika.classList.add('pika-firing');
-    document.getElementById('pikaBadge').textContent = '⚡ CRAWL & SYNTHESIS ACTIVE';
-    document.getElementById('pikaBadge').style.background = '#facc15';
-    document.getElementById('pikaBadge').style.color = '#000';
+    if (pika) pika.classList.add('pika-firing');
+    const badge = document.getElementById('pikaBadge');
+    if (badge) {
+      badge.textContent = '⚡ CRAWL & SYNTHESIS ACTIVE';
+      badge.style.background = '#facc15';
+      badge.style.color = '#000';
+    }
 
     try {
       const res = await fetch(`/api/projects/${projectId}/recon`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'ok') {
-        document.getElementById('pikaBadge').textContent = `✅ ${data.items_count} TESTS READY`;
-        document.getElementById('pikaBadge').style.background = '#10b981';
-        document.getElementById('pikaBadge').style.color = '#000';
+        if (badge) {
+          badge.textContent = `✅ ${data.items_count} TESTS READY`;
+          badge.style.background = '#10b981';
+          badge.style.color = '#000';
+        }
       }
     } catch (err) {
       console.error('Recon error:', err);
     } finally {
       setTimeout(() => {
-        pika.classList.remove('pika-firing');
+        if (pika) pika.classList.remove('pika-firing');
         btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
         btn.textContent = '⚡ RE-TEST PROJECT';
         window.location.reload();
       }, 800);

@@ -23,17 +23,30 @@ def resolve_codebase_path(raw_path: str | None) -> Path | None:
     if candidate.is_dir():
         return candidate
 
-    # Container mapping 1: host workspace path -> /workspace
-    if cleaned.startswith(HOST_WORKSPACE):
-        rel = cleaned[len(HOST_WORKSPACE):].lstrip("/")
+    # Container mapping 1: any host path containing /workspace/ -> /workspace/
+    if "/workspace/" in cleaned:
+        rel = cleaned.split("/workspace/", 1)[1].lstrip("/")
         docker_candidate = Path(CONTAINER_WORKSPACE) / rel
         if docker_candidate.is_dir():
             return docker_candidate
 
-    # Container mapping 2: /workspace -> host workspace path
+    if cleaned.endswith("/workspace"):
+        docker_candidate = Path(CONTAINER_WORKSPACE)
+        if docker_candidate.is_dir():
+            return docker_candidate
+
+    # Container mapping 2: host workspace path -> /workspace
+    hw = os.path.expanduser(HOST_WORKSPACE)
+    if cleaned.startswith(hw):
+        rel = cleaned[len(hw):].lstrip("/")
+        docker_candidate = Path(CONTAINER_WORKSPACE) / rel
+        if docker_candidate.is_dir():
+            return docker_candidate
+
+    # Container mapping 3: /workspace -> host workspace path
     if cleaned.startswith(CONTAINER_WORKSPACE):
         rel = cleaned[len(CONTAINER_WORKSPACE):].lstrip("/")
-        host_candidate = Path(HOST_WORKSPACE) / rel
+        host_candidate = Path(hw) / rel
         if host_candidate.is_dir():
             return host_candidate
 
@@ -43,3 +56,4 @@ def resolve_codebase_path(raw_path: str | None) -> Path | None:
         return cwd_candidate
 
     return None
+
