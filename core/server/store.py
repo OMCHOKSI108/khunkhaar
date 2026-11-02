@@ -25,6 +25,7 @@ def init_db() -> None:
         CREATE TABLE IF NOT EXISTS web_projects (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            description TEXT,
             root_path TEXT,
             github_url TEXT,
             tags TEXT,
@@ -52,17 +53,31 @@ def init_db() -> None:
             comment TEXT
         );
         """)
+        # Safe migration if table existed without description
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(web_projects)").fetchall()]
+        if "description" not in cols:
+            conn.execute("ALTER TABLE web_projects ADD COLUMN description TEXT")
 
 
 def save_project(p: ProjectRecord) -> None:
     with _get_conn() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO web_projects
-               (id, name, root_path, github_url, tags, target_urls, context_links, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (p.id, p.name, p.root_path, p.github_url,
+               (id, name, description, root_path, github_url, tags, target_urls, context_links, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (p.id, p.name, p.description, p.root_path, p.github_url,
              json.dumps(p.tags), json.dumps(p.target_urls),
              json.dumps(p.context_links), p.created_at)
+        )
+
+
+def update_project_context(project_id: str, description: str, target_urls: list[str], context_links: list[str]) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            """UPDATE web_projects
+               SET description = ?, target_urls = ?, context_links = ?
+               WHERE id = ?""",
+            (description, json.dumps(target_urls), json.dumps(context_links), project_id)
         )
 
 
@@ -71,11 +86,10 @@ def get_projects() -> list[ProjectRecord]:
         rows = conn.execute("SELECT * FROM web_projects ORDER BY created_at DESC").fetchall()
         return [
             ProjectRecord(
-                id=r["id"], name=r["name"], root_path=r["root_path"] or "",
-                github_url=r["github_url"] or "", tags=json.loads(r["tags"] or "[]"),
-                target_urls=json.loads(r["target_urls"] or "[]"),
-                context_links=json.loads(r["context_links"] or "[]"),
-                created_at=r["created_at"]
+                id=r["id"], name=r["name"], description=r["description"] or "",
+                root_path=r["root_path"] or "", github_url=r["github_url"] or "",
+                tags=json.loads(r["tags"] or "[]"), target_urls=json.loads(r["target_urls"] or "[]"),
+                context_links=json.loads(r["context_links"] or "[]"), created_at=r["created_at"]
             )
             for r in rows
         ]
@@ -87,11 +101,10 @@ def get_project(project_id: str) -> ProjectRecord | None:
         if not r:
             return None
         return ProjectRecord(
-            id=r["id"], name=r["name"], root_path=r["root_path"] or "",
-            github_url=r["github_url"] or "", tags=json.loads(r["tags"] or "[]"),
-            target_urls=json.loads(r["target_urls"] or "[]"),
-            context_links=json.loads(r["context_links"] or "[]"),
-            created_at=r["created_at"]
+            id=r["id"], name=r["name"], description=r["description"] or "",
+            root_path=r["root_path"] or "", github_url=r["github_url"] or "",
+            tags=json.loads(r["tags"] or "[]"), target_urls=json.loads(r["target_urls"] or "[]"),
+            context_links=json.loads(r["context_links"] or "[]"), created_at=r["created_at"]
         )
 
 

@@ -60,6 +60,15 @@ def create_web_app() -> FastAPI:
         store.save_project(proj)
         return {"status": "ok", "project": proj}
 
+    @app.post("/api/projects/{project_id}/context")
+    async def update_context(project_id: str, payload: dict):
+        desc = payload.get("description", "")
+        urls = payload.get("target_urls", [])
+        links = payload.get("context_links", [])
+        store.update_project_context(project_id, desc, urls, links)
+        push_log(project_id, "Project context & documentation links updated.")
+        return {"status": "ok"}
+
     @app.post("/api/projects/{project_id}/chat")
     async def post_chat(project_id: str, payload: dict):
         text = payload.get("message", "").strip()

@@ -14,6 +14,7 @@ def _now() -> str:
 class ProjectRecord:
     id: str
     name: str
+    description: str = ""
     root_path: str = ""
     github_url: str = ""
     tags: list[str] = field(default_factory=list)
