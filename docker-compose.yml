@@ -13,9 +13,6 @@ services:
       # Must match the host side of the /workspace mount below, so host<->container paths
       # entered in the dashboard resolve correctly.
       - KHUNKHAAR_HOST_WORKSPACE=${WORKSPACE_DIR:-~/workspace}
-      # auth.db_mint in config/khunkhaar.yaml (per-project secrets, never written to config).
-      - LWHUB_DB_PASSWORD=${LWHUB_DB_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
     volumes:
       - ./data:/app/data
       - ./evidence:/app/evidence

@@ -57,3 +57,13 @@ def resolve_codebase_path(raw_path: str | None) -> Path | None:
 
     return None
 
+
+def resolve_docker_host(host: str | None) -> str:
+    """Rewrite a loopback host (127.0.0.1/localhost) to host.docker.internal when running
+    inside the container - a target app and its database are almost always on the Docker host,
+    not inside this container. No-op outside a container or for a non-loopback host."""
+    host = (host or "127.0.0.1").strip()
+    if (os.path.exists("/.dockerenv") or os.path.exists("/workspace")) and host in ("127.0.0.1", "localhost"):
+        return "host.docker.internal"
+    return host
+

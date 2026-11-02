@@ -47,6 +47,14 @@ async def execute_project_recon(
         await asyncio.sleep(0.6)
 
     push_log(project_id, "🔒 [Crawl Phase 3/5] Inspecting multi-role RBAC hierarchy & security postures...")
+    # Auth schema discovery runs before the checklist matrix so the matrix's role columns
+    # (admin/employee/intern/...) match whatever auth_harvester will actually mint tokens for,
+    # instead of a generic "authenticated" placeholder that never matches a real token key.
+    auth_draft = engine_bridge.auto_configure_auth(project_id, proj)
+    if auth_draft:
+        push_log(project_id, f"🔐 Auto-discovered auth schema: {len(auth_draft.get('roles') or [])} "
+                            f"role(s) from this project's own users table + .env - "
+                            f"multi-role tokens will mint automatically during test runs.")
     await asyncio.sleep(0.6)
 
     push_log(project_id, "⚡ [Crawl Phase 4/5] Synthesizing comprehensive Cyber, RBAC, and Business Invariants...")
@@ -55,11 +63,5 @@ async def execute_project_recon(
     items = engine_bridge.generate_checklist(project_id, proj)
     store.save_checklist(project_id, items)
     push_log(project_id, f"✅ [Crawl Phase 5/5] Generated {len(items)} verified test cases. Human Review ready.")
-
-    auth_draft = engine_bridge.auto_configure_auth(project_id, proj)
-    if auth_draft:
-        push_log(project_id, f"🔐 Auto-discovered auth schema: {len(auth_draft.get('roles') or [])} "
-                            f"role(s) from this project's own users table + .env - "
-                            f"multi-role tokens will mint automatically during test runs.")
 
     return items
