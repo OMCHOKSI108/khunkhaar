@@ -92,3 +92,23 @@ def test_sandbox_quarantines_artifacts():
 
     # Cleanup
     terminate_and_cleanup(res["execution_id"])
+
+
+def test_sandbox_executes_node():
+    res = run_in_sandbox("console.log('NODE_UNIT_TEST');", language="javascript", execution_profile="node_qa")
+    assert res["status"] == "COMPLETED"
+    assert "NODE_UNIT_TEST" in res["stdout"]
+
+
+def test_sandbox_executes_playwright_profile():
+    res = run_in_sandbox("import playwright\nprint('PLAYWRIGHT_UNIT_TEST')", language="python", execution_profile="playwright_qa")
+    assert res["status"] == "COMPLETED"
+    assert "PLAYWRIGHT_UNIT_TEST" in res["stdout"]
+
+
+def test_sandbox_full_validation_checklist():
+    from core.sandbox.validator import run_all_validation_checks
+    items = run_all_validation_checks()
+    assert len(items) == 18
+    assert all(i.status == "PASS" for i in items)
+
