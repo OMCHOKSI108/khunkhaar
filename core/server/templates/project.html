@@ -80,6 +80,20 @@
   .pika-firing {
     animation: pikaThunder 0.9s infinite ease-in-out !important;
   }
+  @keyframes thunderButtonFlash {
+    0% { box-shadow: 0 0 15px #facc15, inset 0 0 10px #f59e0b; transform: scale(1); }
+    25% { box-shadow: 0 0 35px #ffffff, 0 0 60px #facc15, inset 0 0 20px #ffffff; transform: scale(1.02) rotate(-0.5deg); }
+    50% { box-shadow: 0 0 25px #facc15, 0 0 45px #ef4444; transform: scale(0.99) rotate(0.5deg); }
+    75% { box-shadow: 0 0 45px #ffffff, 0 0 70px #facc15, inset 0 0 25px #facc15; transform: scale(1.01); }
+    100% { box-shadow: 0 0 15px #facc15, inset 0 0 10px #f59e0b; transform: scale(1); }
+  }
+  .button-firing {
+    animation: thunderButtonFlash 0.5s infinite ease-in-out !important;
+    background: linear-gradient(90deg, #facc15, #f59e0b, #ef4444, #facc15) !important;
+    background-size: 300% 300% !important;
+    color: #000 !important;
+  }
+
   .checklist-table {
     width: 100%;
     border-collapse: collapse;
@@ -413,9 +427,9 @@
   async function fireThunderboltAndTest() {
     const btn = document.getElementById('btnTestProject');
     btn.disabled = true;
-    btn.style.opacity = '0.6';
+    btn.classList.add('button-firing');
     btn.style.cursor = 'wait';
-    btn.textContent = '⚡ CRAWLING CODEBASE & GATHERING TESTS...';
+    btn.innerHTML = '⚡ THUNDERBOLT STRIKING... CRAWLING CODEBASE';
 
     try {
       await saveContext();
@@ -428,7 +442,7 @@
     if (pika) pika.classList.add('pika-firing');
     const badge = document.getElementById('pikaBadge');
     if (badge) {
-      badge.textContent = '⚡ CRAWL & SYNTHESIS ACTIVE';
+      badge.textContent = '⚡ CRAWL & RAG SYNTHESIS ACTIVE';
       badge.style.background = '#facc15';
       badge.style.color = '#000';
     }
@@ -448,12 +462,12 @@
     } finally {
       setTimeout(() => {
         if (pika) pika.classList.remove('pika-firing');
+        btn.classList.remove('button-firing');
         btn.disabled = false;
-        btn.style.opacity = '1';
         btn.style.cursor = 'pointer';
-        btn.textContent = '⚡ RE-TEST PROJECT';
+        btn.innerHTML = '⚡ RE-TEST PROJECT (Fire Thunderbolt)';
         window.location.reload();
-      }, 800);
+      }, 1200);
     }
   }
 
