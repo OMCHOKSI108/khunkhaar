@@ -25,9 +25,9 @@ def detect_frameworks_and_language(root: Path) -> tuple[str, list[str], str]:
     language = "unknown"
     project_type = "web-app"
 
-    # Node.js
-    pkg_json = root / "package.json"
-    if pkg_json.is_file():
+    # Node.js / JavaScript / TypeScript manifests
+    pkg_jsons = [p for p in [root / "package.json"] + list(root.glob("*/package.json")) if p.is_file() and not any(part in SKIP_SCAN_DIRS for part in p.parts)]
+    for pkg_json in pkg_jsons[:5]:
         language = "JavaScript/TypeScript"
         try:
             data = json.loads(pkg_json.read_text(encoding="utf-8"))
