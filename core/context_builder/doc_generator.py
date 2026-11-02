@@ -75,8 +75,16 @@ Generated: {ts} | Target Engine: PostgreSQL / SQL
     return ContextDocument("DATABASE", "DATABASE.md", content, timestamp=ts)
 
 
-def write_context_directory(root_dir: Path, docs: list[ContextDocument]) -> None:
+def write_context_directory(root_dir: Path, docs: list[ContextDocument]) -> Path:
     target = root_dir / ".context"
-    target.mkdir(parents=True, exist_ok=True)
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        (target / ".probe").touch()
+        (target / ".probe").unlink()
+    except OSError:
+        from core.shared import paths
+        target = paths.data_dir() / "context" / root_dir.name / ".context"
+        target.mkdir(parents=True, exist_ok=True)
     for doc in docs:
         (target / doc.path).write_text(doc.content, encoding="utf-8")
+    return target

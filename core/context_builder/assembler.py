@@ -20,7 +20,8 @@ def assemble_context(
     used_chars = 0
 
     proj = store.get_project(project_id)
-    summary = f"Project: {proj.name if proj else project_id} (Target: {proj.target_url if proj else 'N/A'})"
+    target = (proj.target_urls[0] if proj and proj.target_urls else "N/A")
+    summary = f"Project: {proj.name if proj else project_id} (Target: {target})"
     used_chars += len(summary)
 
     relevant_files: list[str] = []

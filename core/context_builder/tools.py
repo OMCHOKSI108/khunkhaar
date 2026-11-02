@@ -38,7 +38,7 @@ def build_full_project_context(project_id: str, raw_codebase_path: str) -> dict[
     graph_store.save_relationships(project_id, all_rels)
 
     # 4. Ingest Vectors
-    vector_store.ingest_codebase_to_vectors(project_id, root)
+    vector_store.index_codebase_chunks(project_id, root)
 
     # 5. Generate Markdown Documentation
     proj = store.get_project(project_id)

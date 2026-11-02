@@ -40,7 +40,7 @@ def hybrid_search(project_id: str, query: str, top_k: int = 10) -> list[SearchRe
 
     # 1. Vector Search
     try:
-        vec_results = vector_store.search_code_vectors(project_id, query, top_k=top_k * 2)
+        vec_results = vector_store.search_code_context(project_id, query, top_k=top_k * 2)
         for rank, res in enumerate(vec_results):
             key = f"{res['file_path']}:{res.get('chunk_index', 0)}"
             scores[key] = scores.get(key, 0.0) + (1.0 / (60 + rank))
