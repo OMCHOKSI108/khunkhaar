@@ -45,6 +45,7 @@ HELP = f"""KHUNKHAAR QA {paths.version()} — centralized QA infrastructure
 
 USAGE
   khunkhaar                     discover the current project and launch the QA environment
+  khunkhaar server [port]       start the interactive QA web mission control server
   khunkhaar --doctor            verify every tool this platform depends on
   khunkhaar --project-info      show what discovery sees (no launch)
   khunkhaar --version           print the version
@@ -567,6 +568,11 @@ def main(argv: list[str]) -> int:
         return 0
     if head in ("-v", "--version"):
         print(f"khunkhaar {paths.version()}  (root: {paths.kh_root()})")
+        return 0
+    if head in ("server", "web", "--server", "--web"):
+        from core.server.runner import start_server
+        port = int(args[1]) if len(args) > 1 and args[1].isdigit() else None
+        start_server(port=port)
         return 0
     if head in ("--tester-all", "--tester-end-user", "--tester-swe", "--tester-rbac"):
         from core.commands import test as cmd_test
