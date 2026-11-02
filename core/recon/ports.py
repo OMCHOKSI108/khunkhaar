@@ -50,3 +50,57 @@ def probe_graphql_endpoint(host: str, port: int, path: str = "/api/graphql", tim
             return bool(data.get("data", {}).get("__typename"))
     except Exception:
         return False
+
+
+def discover_active_services(host: str = "127.0.0.1", candidate_ports: list[int] | None = None) -> list[PortInfo]:
+    """Scan and identify all active local services on common development ports."""
+    ports_to_check = candidate_ports or COMMON_DEV_PORTS
+    active: list[PortInfo] = []
+
+    for port in ports_to_check:
+        if not check_port_open(host, port):
+            continue
+
+        info = PortInfo(port=port, status="open")
+        # Check for GraphQL endpoints
+        for gq_path in ("/api/graphql", "/graphql"):
+            if probe_graphql_endpoint(host, port, gq_path):
+                info.service_type = "graphql"
+                info.path = gq_path
+                info.banner = "GraphQL API"
+                break
+
+        # If not GraphQL, probe HTTP
+        if info.service_type == "unknown":
+            res = probe_http_service(host, port)
+            if res:
+                body = res.get("body", "").lower()
+                server = res.get("server", "")
+                if "streamlit" in body or "_stcore" in body:
+                    info.service_type = "streamlit"
+                    info.banner = "Streamlit Interactive Application"
+                elif "next" in server.lower() or "__next" in body:
+                    info.service_type = "nextjs"
+                    info.banner = "Next.js Web Application"
+                elif "vite" in body or "react" in body:
+                    info.service_type = "frontend"
+                    info.banner = "Single Page App Frontend"
+                else:
+                    info.service_type = "http"
+                    info.banner = f"HTTP Server ({server or 'status ' + res.get('status', '')})"
+            elif port in (5432, 5445):
+                info.service_type = "database-postgres"
+                info.banner = "PostgreSQL Database"
+            elif port in (3306,):
+                info.service_type = "database-mysql"
+                info.banner = "MySQL Database"
+            elif port in (27017,):
+                info.service_type = "database-mongodb"
+                info.banner = "MongoDB"
+            elif port in (6379,):
+                info.service_type = "cache-redis"
+                info.banner = "Redis"
+
+        active.append(info)
+
+    return active
