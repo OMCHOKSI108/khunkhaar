@@ -31,6 +31,9 @@ from core import commands as command_registry  # noqa: E402
 from core.metadata import store  # noqa: E402
 from core.project_discovery import detector  # noqa: E402
 from core.shared import paths  # noqa: E402
+from core.recon.scanner import scan_project  # noqa: E402
+from core.strategy.generator import generate_test_strategy  # noqa: E402
+from core.workspace.manager import WorkspaceManager  # noqa: E402
 
 MCP_SERVERS = ("khunkhaar-browser", "khunkhaar-api", "khunkhaar-database", "khunkhaar-filesystem")
 PHASE2_COMMANDS = ("scan", "explore", "security", "api", "workflows", "verify", "report")
@@ -121,18 +124,31 @@ def _load_credentials() -> list[str]:
     return loaded
 
 
-def _context_prompt(profile: dict) -> str:
+def _context_prompt(recon, strategy, ws) -> str:
     lines = [
-        f"KHUNKHAAR QA session for project '{profile['name']}' ({profile['project_id']}).",
-        f"Project root: {profile['root']}",
-        f"Type: {profile['project_type']}; languages: "
-        f"{', '.join(item['name'] for item in profile['languages'][:6]) or 'unknown'}; "
-        f"frameworks: {', '.join(profile['frameworks'][:8]) or 'none detected'}.",
-        f"Full profile: {paths.project_dir(profile['project_id']) / 'project-profile.json'}",
-        "Use the khunkhaar-* MCP tools for browser, API, database and evidence work. Browser "
-        "navigation is limited to browser.allowed_origins; API calls are limited to "
-        "api.allowed_hosts; database access is read-only and row-capped. Store screenshots, "
-        "traces and reports under the KHUNKHAAR evidence/reports tree, not in the project.",
+        "You are KHUNKHAAR, an Autonomous Senior QA Engineering & Security Auditing Agent.",
+        f"Target Project: '{recon.project_name}' at '{recon.root_path}'.",
+        f"Architecture: {recon.primary_language} ({recon.project_type}), Frameworks: {', '.join(recon.frameworks) or 'None detected'}.",
+        f"Discovered Endpoints: {len(recon.endpoints)} ({sum(1 for e in recon.endpoints if e.kind == 'graphql_query')} Queries, {sum(1 for e in recon.endpoints if e.kind == 'graphql_mutation')} Mutations, {sum(1 for e in recon.endpoints if e.kind in ('rest', 'page'))} REST/UI).",
+        f"Database Models: {len(recon.models)}. Active Ports: {', '.join(f'{p.port} ({p.service_type})' for p in recon.ports) or 'None detected'}.",
+        f"Suggested Target URL: {recon.suggested_target_url or 'http://localhost:4000'}.",
+        "",
+        "## PERSISTENT QA WORKSPACE (.khunkhar/)",
+        "- Project context: .khunkhar/project-context.md",
+        f"- Test strategy & {strategy.total_count} test cases: .khunkhar/test-cases.json ({strategy.p0_count} P0 Critical, {strategy.p1_count} P1 High)",
+        "- Execution log: .khunkhar/execution-log.json",
+        "- Confirmed defects: .khunkhar/bugs/",
+        "- Raw payloads & evidence: .khunkhar/evidence/",
+        "- Final QA audit report: .khunkhar/final-report.md",
+        "",
+        "## MISSION OBJECTIVES & TWO-PHASE VERIFICATION PROTOCOL",
+        "1. Execute test cases methodically according to priority (P0 Critical first, then P1 High).",
+        "2. Mandatory Two-Phase Verification: When an anomaly or failure is observed (e.g., SQLi count inflation, unauthorized IDOR record leak, missing RBAC block, unnotified approval state transition), DO NOT immediately report it. Re-test and independently verify it to prove reproducible defect evidence.",
+        "3. Assert side-effects: On approval flows (leave, WFH, expense), verify DB status changed AND manager/employee notifications were emitted AND event logs were recorded.",
+        "4. For each confirmed defect, write a structured markdown file in .khunkhar/bugs/<test_id>_<title>.md with reproduction steps, payload, and actual response evidence.",
+        "5. Compile the final comprehensive audit report in .khunkhar/final-report.md when finished.",
+        "",
+        "Use MCP tools (khunkhaar-api, khunkhaar-database, khunkhaar-browser, khunkhaar-filesystem). Quality, depth, and rigorous proof are paramount."
     ]
     return "\n".join(lines)
 
@@ -142,31 +158,26 @@ def _opencode_binary() -> str | None:
 
 
 def cmd_launch(args: list[str]) -> int:
-    discovery = "--no-discovery" not in args
     print_launch = "--print-launch" in args
+    target_dir = Path.cwd().resolve()
 
-    store.init()
-    profile = detector.detect()
-    if not profile.get("valid_project"):
-        _say(f"khunkhaar: {profile.get('reason')}")
-        _say(f"khunkhaar: run this inside a project directory, or use --project-info to inspect {Path.cwd()}")
-        return 2
+    _say(f"🔍 KHUNKHAAR: Running universal reconnaissance on {target_dir.name}...")
+    recon = scan_project(target_dir)
+    _say(f"✅ Discovered {recon.primary_language} ({recon.project_type}) with {len(recon.endpoints)} endpoints, {len(recon.models)} models")
+    if recon.ports:
+        _say(f"🔌 Active services: {', '.join(f'{p.port} ({p.service_type})' for p in recon.ports)}")
 
-    if discovery:
-        if "--no-write" not in args:
-            target = detector.write_profile(profile)
-            _say(f"project: {profile['project_id']}  ({profile['project_type']})")
-            _say(f"profile: {target}")
-        else:
-            _say(f"project: {profile['project_id']}")
-    else:
-        stored = store.get_project(detector.project_id_for(Path(profile["root"])))
-        if stored and stored.get("profile_path"):
-            profile = json.loads(Path(stored["profile_path"]).read_text(encoding="utf-8"))
+    _say("📋 Formulating 18-category adaptive test strategy...")
+    strategy = generate_test_strategy(recon)
+    _say(f"🎯 Generated {strategy.total_count} prioritized test cases ({strategy.p0_count} P0 Critical, {strategy.p1_count} P1 High)")
+
+    ws = WorkspaceManager(target_dir)
+    ws.init_workspace(recon, strategy)
+    _say("📁 Persistent QA workspace initialized at .khunkhar/")
 
     loaded = _load_credentials()
     if loaded:
-        _say(f"credentials: {len(loaded)} profile file(s) loaded into the session environment")
+        _say(f"🔑 Loaded {len(loaded)} credential profile(s) into session environment")
 
     binary = _opencode_binary()
     if binary is None:
@@ -177,18 +188,16 @@ def cmd_launch(args: list[str]) -> int:
     command = [binary]
     if "--standalone" not in extra:
         command.append("--standalone")
-    command += [*extra, "--prompt", _context_prompt(profile), profile["root"]]
+    command += [*extra, "--prompt", _context_prompt(recon, strategy, ws), str(target_dir)]
 
     if print_launch:
-        _say(json.dumps({"command": command, "cwd": profile["root"],
-                         "env_loaded": loaded, "project_id": profile["project_id"]}, indent=2))
+        _say(json.dumps({"command": command, "cwd": str(target_dir), "project_id": recon.project_id}, indent=2))
         return 0
 
-    os.chdir(profile["root"])
+    os.chdir(target_dir)
     os.environ["KHUNKHAAR_ROOT"] = str(paths.kh_root())
-    os.environ["KHUNKHAAR_PROJECT_ID"] = profile["project_id"]
+    os.environ["KHUNKHAAR_PROJECT_ID"] = recon.project_id
     try:
-        # Resolved absolute binary with an argv list.
         os.execv(binary, command)  # nosec B606
     except OSError as exc:
         _say(f"khunkhaar: could not start opencode: {exc}")
