@@ -8,6 +8,8 @@ from typing import Any
 
 @dataclass
 class TestCase:
+    __test__ = False
+
     id: str
     category: str
     title: str
@@ -44,6 +46,8 @@ class TestCase:
 
 @dataclass
 class TestStrategy:
+    __test__ = False
+
     project_id: str
     project_name: str
     summary: str
