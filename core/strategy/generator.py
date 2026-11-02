@@ -89,3 +89,36 @@ def generate_idor_test_cases(recon: ProjectRecon) -> list[TestCase]:
                 break
     return cases
 
+
+def generate_rbac_and_privilege_cases(recon: ProjectRecon) -> list[TestCase]:
+    """Generate RBAC and Vertical Privilege Escalation test cases."""
+    cases: list[TestCase] = []
+    idx = 1
+    mutation_eps = [e for e in recon.endpoints if e.kind in ("graphql_mutation", "rest") and e.method in ("POST", "PUT", "DELETE", "PATCH")]
+
+    for ep in mutation_eps:
+        name_lower = ep.name.lower()
+        is_elevated = any(k in name_lower for k in ("approve", "reject", "delete", "create", "update", "config", "admin", "role", "permission"))
+        if is_elevated or ep.auth_required:
+            cases.append(TestCase(
+                id=f"TC-RBAC-{idx:03d}",
+                category="2. RBAC & Multi-Role Authorization",
+                title=f"Role boundary enforcement on {ep.name}",
+                priority="P0_CRITICAL" if is_elevated else "P1_HIGH",
+                target_type="endpoint",
+                target=ep.name,
+                description=f"Attempt {ep.name} with standard employee/user credentials lacking elevated role",
+                preconditions=["Login as standard role (USER / EMPLOYEE)"],
+                steps=[
+                    f"Attempt invocation of {ep.name} with valid payload but standard user token",
+                    "Verify request is blocked with NOT_AUTHORIZED or HTTP 403",
+                    "Verify state of the target entity did not mutate in the database"
+                ],
+                expected_behavior="Operation rejected with authorization error; state unchanged",
+                assertion_type="http_status_or_auth_error"
+            ))
+            idx += 1
+            if idx > 15:
+                break
+    return cases
+
