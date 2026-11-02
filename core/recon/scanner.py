@@ -135,12 +135,12 @@ def extract_graphql_endpoints(root: Path) -> list[EndpointDef]:
 
                 endpoints.append(EndpointDef(
                     name=field_name,
-                    path=f"graphql:{kind.lower()}:{field_name}",
-                    method=kind.upper(),
-                    handler=f"{path.name}:{field_name}",
+                    kind=f"graphql_{kind.lower()}",
+                    path=f"/graphql#{field_name}",
+                    method="POST",
+                    source_file=str(path.relative_to(root)),
                     auth_required=auth_req,
-                    roles_allowed=parsed_roles,
-                    description=f"{kind} returning {return_type}. Args: {args_raw.strip()}" if args_raw.strip() else f"{kind} returning {return_type}"
+                    description=f"{kind} returning {return_type}. Directives: {extra.strip()}"
                 ))
     return endpoints
 
@@ -152,9 +152,10 @@ def extract_rest_and_ui_routes(root: Path) -> list[EndpointDef]:
     for page_path in root.glob("pages/*.py"):
         endpoints.append(EndpointDef(
             name=page_path.stem,
+            kind="page",
             path=f"/pages/{page_path.stem}",
-            method="UI_PAGE",
-            handler=str(page_path.relative_to(root)),
+            method="GET",
+            source_file=str(page_path.relative_to(root)),
             description=f"Streamlit page: {page_path.stem}"
         ))
 
@@ -170,9 +171,10 @@ def extract_rest_and_ui_routes(root: Path) -> list[EndpointDef]:
                 if f"export async function {m}" in content or f"export function {m}" in content:
                     endpoints.append(EndpointDef(
                         name=f"{m} {url_path}",
+                        kind="rest",
                         path=url_path,
                         method=m,
-                        handler=str(rel),
+                        source_file=str(rel),
                         description=f"Next.js App Route handler {m}"
                     ))
         except Exception:
@@ -193,7 +195,7 @@ def extract_database_models(root: Path) -> list[ModelDef]:
                 name = m.group(1)
                 body = m.group(2)
                 fields = [line.strip().split()[0] for line in body.splitlines() if line.strip() and not line.strip().startswith("//") and not line.strip().startswith("@@")]
-                models.append(ModelDef(name=name, fields=fields[:20], file_path=str(prisma_file.relative_to(root))))
+                models.append(ModelDef(name=name, table_name=name.lower(), fields=fields[:20], source_file=str(prisma_file.relative_to(root))))
         except Exception:
             pass
 
@@ -205,11 +207,11 @@ def extract_database_models(root: Path) -> list[ModelDef]:
             content = mfile.read_text(encoding="utf-8", errors="ignore")
             match = re.search(r'sequelize\.define\(\s*[\'"](\w+)[\'"]', content)
             if match:
-                models.append(ModelDef(name=match.group(1), file_path=str(mfile.relative_to(root))))
+                models.append(ModelDef(name=match.group(1), table_name=match.group(1).lower(), source_file=str(mfile.relative_to(root))))
             else:
                 class_match = re.search(r'class\s+(\w+)\s+extends\s+(?:Model|Sequelize\.Model)', content)
                 if class_match:
-                    models.append(ModelDef(name=class_match.group(1), file_path=str(mfile.relative_to(root))))
+                    models.append(ModelDef(name=class_match.group(1), table_name=class_match.group(1).lower(), source_file=str(mfile.relative_to(root))))
         except Exception:
             pass
 
@@ -288,16 +290,26 @@ def scan_project(root: Path | str = ".") -> ProjectRecon:
     if any("oauth" in k.lower() for k in env_vars):
         auth_mechanisms.append("OAuth")
 
+    # Determine suggested target URL from active ports
+    suggested_url = ""
+    for p in active_ports:
+        if p.service_type in ("http", "graphql", "streamlit", "nextjs"):
+            suggested_url = f"http://localhost:{p.port}"
+            break
+
+    proj_id = hashlib.sha256(str(root_path).encode("utf-8")).hexdigest()[:12]
     return ProjectRecon(
-        root_path=str(root_path),
+        project_id=proj_id,
         project_name=root_path.name,
+        root_path=str(root_path),
         primary_language=lang,
         frameworks=sorted(set(frameworks)),
         project_type=proj_type,
         endpoints=endpoints,
         models=models,
-        active_ports=active_ports,
+        ports=active_ports,
         auth_mechanisms=auth_mechanisms,
-        env_vars=env_vars,
-        business_rules_docs=docs,
+        documentation_sources=list(docs.keys()),
+        suggested_target_url=suggested_url,
     )
+
