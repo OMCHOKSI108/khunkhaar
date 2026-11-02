@@ -64,3 +64,10 @@ async def run_benchmark(project_id: str, payload: dict):
     queries = payload.get("queries", [])
     report = benchmark.run_accuracy_benchmark(project_id, queries)
     return {"status": "ok", "report": report}
+
+
+@context_router.post("/validate-engine")
+async def validate_engine(project_id: str):
+    from core.context_validator import execute_comprehensive_validation
+    report = execute_comprehensive_validation(project_id)
+    return {"status": "ok", "validation_report": report}
