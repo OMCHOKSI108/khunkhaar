@@ -103,3 +103,43 @@ def detect_python_and_other_frameworks(root: Path, language: str, frameworks: li
         project_type = "service"
 
     return language, frameworks, project_type
+
+
+def extract_graphql_endpoints(root: Path) -> list[EndpointDef]:
+    """Extract queries and mutations from .graphql and .gql schema files."""
+    endpoints: list[EndpointDef] = []
+    block_re = re.compile(r'(?:extend\s+)?type\s+(Query|Mutation)\b[^{]*\{([^}]+)\}', re.MULTILINE | re.DOTALL)
+    field_re = re.compile(r'^\s*(\w+)(?:\(([^)]*)\))?\s*:\s*([^\s@#]+)(.*)$', re.MULTILINE)
+
+    for path in root.rglob("*.graphql*"):
+        if any(part in SKIP_SCAN_DIRS for part in path.parts):
+            continue
+        try:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        for block_match in block_re.finditer(content):
+            kind = block_match.group(1)  # Query or Mutation
+            body = block_match.group(2)
+            for fm in field_re.finditer(body):
+                field_name = fm.group(1)
+                args_raw = fm.group(2) or ""
+                return_type = fm.group(3).strip()
+                extra = fm.group(4) or ""
+                
+                # Check auth / permissions
+                auth_req = ("@isAuthenticated" in extra) or ("@hasRole" in extra) or ("@hasPermission" in extra)
+                roles = re.findall(r'role[s]?\s*:\s*\[?([A-Za-z0-9_,\s]+)\]?', extra)
+                parsed_roles = [r.strip().strip('"\'') for item in roles for r in item.split(",") if r.strip()]
+
+                endpoints.append(EndpointDef(
+                    name=field_name,
+                    path=f"graphql:{kind.lower()}:{field_name}",
+                    method=kind.upper(),
+                    handler=f"{path.name}:{field_name}",
+                    auth_required=auth_req,
+                    roles_allowed=parsed_roles,
+                    description=f"{kind} returning {return_type}. Args: {args_raw.strip()}" if args_raw.strip() else f"{kind} returning {return_type}"
+                ))
+    return endpoints
