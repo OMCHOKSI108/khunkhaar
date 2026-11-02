@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   khunkhaar-server:
     build: .
@@ -18,3 +16,5 @@ services:
       - ./reports:/app/reports
       - /home/omchoksi/workspace:/workspace:ro
       - /home/omchoksi/workspace:/home/omchoksi/workspace:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

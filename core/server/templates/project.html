@@ -302,8 +302,12 @@
                 ">{{ item.severity }}</span>
               </td>
               <td>
-                <span id="status-{{ item.id }}" class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">
-                  {{ item.status }}
+                <span id="status-{{ item.id }}" class="badge" style="
+                  {% if item.status == 'passed' %}background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981;
+                  {% elif item.status == 'failed' %}background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #ef4444;
+                  {% else %}background: rgba(255,255,255,0.05); color: var(--text-muted);{% endif %}
+                ">
+                  {{ item.status | upper }}
                 </span>
               </td>
             </tr>
@@ -331,7 +335,11 @@
   evtSource.onmessage = function(e) {
     const data = JSON.parse(e.data);
     const line = document.createElement('div');
-    line.textContent = `> ${data.log}`;
+    const msg = data.message || data.log || '';
+    line.textContent = `> ${msg}`;
+    if (data.level === 'PASS' || msg.includes('[PASS]')) line.style.color = '#10b981';
+    else if (data.level === 'FAIL' || msg.includes('[FAIL]')) line.style.color = '#ef4444';
+    else if (data.level === 'TEST' || msg.includes('[TEST')) line.style.color = '#facc15';
     logTerminal.appendChild(line);
     logTerminal.scrollTop = logTerminal.scrollHeight;
   };
@@ -431,42 +439,45 @@
 
     const btn = document.getElementById('btnApprove');
     btn.disabled = true;
-    btn.textContent = '⚡ Running Approved Tests...';
+    btn.textContent = '⚡ RUNNING LIVE TEST SUITE...';
 
     const pika = document.getElementById('pikaSprite');
     pika.classList.add('pika-firing');
-    document.getElementById('pikaBadge').textContent = '⚡ BATTLING BUGS';
+    document.getElementById('pikaBadge').textContent = '⚡ EXECUTING TESTS';
 
     const bar = document.getElementById('testProgressBar');
     const counter = document.getElementById('testCounterLabel');
     const stage = document.getElementById('stageLabel');
 
-    let current = 0;
-    const total = selected.length;
-    const interval = setInterval(() => {
-      current++;
-      const pct = Math.round((current / total) * 100);
-      bar.style.width = `${pct}%`;
-      counter.textContent = `${current} / ${total} Executed`;
-      stage.textContent = `Executing Test #${current} of ${total}...`;
+    stage.textContent = `Executing ${selected.length} tests against API target...`;
+    bar.style.width = '20%';
 
-      if (current >= total) {
-        clearInterval(interval);
-        pika.classList.remove('pika-firing');
-        document.getElementById('pikaBadge').textContent = '● BATTLE COMPLETE';
-        document.getElementById('pikaBadge').style.background = 'rgba(16,185,129,0.15)';
-        document.getElementById('pikaBadge').style.color = '#10b981';
-        stage.textContent = 'All Invariants Verified & Logged';
-        btn.disabled = false;
-        btn.textContent = '✅ Tests Completed';
-      }
-    }, 120);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected_ids: selected })
+      });
+      const data = await res.json();
+      bar.style.width = '100%';
+      counter.textContent = `${data.total} / ${data.total} Executed`;
+      stage.textContent = `Completed: ${data.passed} Passed, ${data.failed} Failed.`;
 
-    await fetch(`/api/projects/${projectId}/approve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selected_ids: selected })
-    });
+      document.getElementById('pikaBadge').textContent = '● BATTLE COMPLETE';
+      document.getElementById('pikaBadge').style.background = 'rgba(16,185,129,0.15)';
+      document.getElementById('pikaBadge').style.color = '#10b981';
+      btn.textContent = '✅ Tests Completed';
+      btn.disabled = false;
+    } catch (err) {
+      stage.textContent = `Test run error: ${err}`;
+      btn.disabled = false;
+      btn.textContent = '⚡ RETRY TESTS';
+    } finally {
+      pika.classList.remove('pika-firing');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    }
   }
 </script>
 {% endblock %}

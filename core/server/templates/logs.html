@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Centralized Logs | Khunkhaar QA{% endblock %}
+
+{% block content %}
+<div style="max-width: 1300px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; height: calc(100vh - 120px);">
+  
+  <!-- Header Bar -->
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem;">
+    <div>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+        📜 Centralized Telemetry & Audit Logs
+      </h2>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0.25rem 0 0 0;">
+        Real-time unified execution stream for reconnaissance crawls, API probes, and test results.
+      </p>
+    </div>
+
+    <!-- Filter Buttons & Controls -->
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button onclick="setFilter('ALL')" class="log-filter-btn active" id="filter-ALL">ALL</button>
+      <button onclick="setFilter('PASS')" class="log-filter-btn" id="filter-PASS" style="color: #10b981;">PASS</button>
+      <button onclick="setFilter('FAIL')" class="log-filter-btn" id="filter-FAIL" style="color: #ef4444;">FAIL</button>
+      <button onclick="setFilter('TEST')" class="log-filter-btn" id="filter-TEST" style="color: #facc15;">TEST</button>
+      <button onclick="setFilter('INFO')" class="log-filter-btn" id="filter-INFO" style="color: #60a5fa;">INFO</button>
+      <button onclick="clearTerminal()" style="background: #111; border: 1px solid #333; color: #888; border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.75rem; cursor: pointer;">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Central Log Terminal -->
+  <div id="centralTerminal" class="font-mono" style="
+    flex: 1; background: #020202; border: 1px solid var(--card-border); border-radius: 12px;
+    padding: 1.25rem; overflow-y: auto; font-size: 0.85rem; line-height: 1.6;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+  ">
+    {% for item in history %}
+    <div class="log-entry log-{{ item.level | lower }}" data-level="{{ item.level }}">
+      <span style="color: #555;">[{{ item.timestamp }}]</span>
+      <span class="badge-log badge-{{ item.level | lower }}">{{ item.level }}</span>
+      <span style="color: #aaa; margin-right: 0.4rem;">[{{ item.project_id }}]</span>
+      <span>{{ item.message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<style>
+  .log-filter-btn {
+    background: #080808; border: 1px solid var(--card-border); border-radius: 6px;
+    padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    color: var(--text-muted); transition: all 0.2s;
+  }
+  .log-filter-btn.active {
+    background: #1a1a1a; border-color: #555; color: #fff;
+  }
+  .badge-log {
+    font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; margin: 0 0.4rem;
+  }
+  .badge-pass { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981; }
+  .badge-fail { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid #ef4444; }
+  .badge-test { background: rgba(250,204,21,0.2); color: #facc15; border: 1px solid #facc15; }
+  .badge-info { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .badge-warn { background: rgba(245,158,11,0.2); color: #f59e0b; }
+</style>
+
+<script>
+  let currentFilter = 'ALL';
+  const terminal = document.getElementById('centralTerminal');
+  terminal.scrollTop = terminal.scrollHeight;
+
+  const evtSource = new EventSource('/api/logs/stream');
+  evtSource.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    appendLog(data);
+  };
+
+  function appendLog(item) {
+    const div = document.createElement('div');
+    div.className = `log-entry log-${item.level.toLowerCase()}`;
+    div.dataset.level = item.level;
+    div.style.display = (currentFilter === 'ALL' || currentFilter === item.level) ? 'block' : 'none';
+
+    div.innerHTML = `
+      <span style="color: #555;">[${item.timestamp}]</span>
+      <span class="badge-log badge-${item.level.toLowerCase()}">${item.level}</span>
+      <span style="color: #aaa; margin-right: 0.4rem;">[${item.project_id}]</span>
+      <span>${item.message}</span>
+    `;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  function setFilter(lvl) {
+    currentFilter = lvl;
+    document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`filter-${lvl}`).classList.add('active');
+    document.querySelectorAll('.log-entry').forEach(el => {
+      el.style.display = (lvl === 'ALL' || el.dataset.level === lvl) ? 'block' : 'none';
+    });
+  }
+
+  function clearTerminal() {
+    terminal.innerHTML = '<div style="color: #555;">[Terminal Cleared]</div>';
+  }
+</script>
+{% endblock %}

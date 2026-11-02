@@ -4,22 +4,18 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from pathlib import Path
 from typing import AsyncGenerator
-
-from fastapi import APIRouter, Response
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from core.server import agent, store
-from core.server.models import ChatMessage, ChecklistItem, ProjectRecord
+from core.server import agent, logger, store
+from core.server.models import ChatMessage, ProjectRecord
 
 router = APIRouter(prefix="/api/projects")
-LOG_STREAMS: dict[str, list[asyncio.Queue]] = {}
 
 
-def push_log(project_id: str, message: str) -> None:
-    for q in LOG_STREAMS.get(project_id, []):
-        q.put_nowait(message)
+def push_log(project_id: str, message: str, level: str = "INFO") -> None:
+    logger.record_log(project_id, message, level=level)
 
 
 @router.post("")
@@ -69,16 +65,16 @@ async def post_chat(project_id: str, payload: dict):
 @router.get("/{project_id}/logs/stream")
 async def stream_logs(project_id: str):
     queue: asyncio.Queue = asyncio.Queue()
-    LOG_STREAMS.setdefault(project_id, []).append(queue)
+    logger.register_project_listener(project_id, queue)
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            yield f"data: {json.dumps({'log': 'Connected to live Khunkhaar QA log stream'})}\n\n"
+            yield f"data: {json.dumps({'message': 'Connected to live Khunkhaar QA log stream', 'level': 'INFO', 'project_id': project_id})}\n\n"
             while True:
-                msg = await queue.get()
-                yield f"data: {json.dumps({'log': msg})}\n\n"
+                entry = await queue.get()
+                yield f"data: {json.dumps(entry)}\n\n"
         except asyncio.CancelledError:
-            LOG_STREAMS[project_id].remove(queue)
+            logger.unregister_project_listener(project_id, queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -95,13 +91,7 @@ async def run_recon(project_id: str):
 
 @router.post("/{project_id}/approve")
 async def approve_and_test(project_id: str, payload: dict):
-    selected_ids = set(payload.get("selected_ids", []))
-    items = store.get_checklist(project_id)
-    push_log(project_id, f"Human Approved {len(selected_ids)} tests. Starting execution pipeline...")
-    for it in items:
-        it.selected = it.id in selected_ids
-        if it.selected:
-            it.status = "passed"
-    store.save_checklist(project_id, items)
-    push_log(project_id, "Testing 1, 2, 3 ... complete. Generated task-wise bug audit.")
-    return {"status": "executed", "total": len(selected_ids)}
+    selected_ids = payload.get("selected_ids", [])
+    from core.server import test_runner
+    res = await test_runner.execute_test_pipeline(project_id, selected_ids)
+    return res

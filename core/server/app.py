@@ -1,12 +1,15 @@
 """FastAPI Web Application for Khunkhaar Interactive Platform."""
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
+from typing import AsyncGenerator
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
-from core.server import store
+from core.server import logger, store
 from core.server.routes import router
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
@@ -33,5 +36,26 @@ def create_web_app() -> FastAPI:
         return templates.TemplateResponse(request, "project.html", {
             "project": proj, "messages": messages, "checklist": checklist
         })
+
+    @app.get("/logs", response_class=HTMLResponse)
+    async def centralized_logs(request: Request):
+        history = logger.get_recent_logs(limit=150)
+        return templates.TemplateResponse(request, "logs.html", {"history": history})
+
+    @app.get("/api/logs/stream")
+    async def global_logs_stream():
+        queue: asyncio.Queue = asyncio.Queue()
+        logger.register_global_listener(queue)
+
+        async def stream():
+            try:
+                yield f"data: {json.dumps({'message': 'Connected to Khunkhaar centralized telemetry feed', 'level': 'INFO', 'project_id': 'system', 'timestamp': '00:00:00.000'})}\n\n"
+                while True:
+                    entry = await queue.get()
+                    yield f"data: {json.dumps(entry)}\n\n"
+            except asyncio.CancelledError:
+                logger.unregister_global_listener(queue)
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
 
     return app

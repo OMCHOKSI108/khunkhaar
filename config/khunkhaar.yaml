@@ -19,6 +19,8 @@ api:
     # Local developer environments & applications
     - "127.0.0.1:8000"
     - "localhost:8000"
+    - "host.docker.internal:8000"
+    - "172.17.0.1:8000"
     - "127.0.0.1:8001"
     - "localhost:8001"
     - "127.0.0.1:3000"
