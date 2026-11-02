@@ -21,3 +21,32 @@ def check_port_open(host: str, port: int, timeout: float = 0.3) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(timeout)
         return sock.connect_ex((host, port)) == 0
+
+
+def probe_http_service(host: str, port: int, timeout: float = 1.0) -> dict[str, str] | None:
+    """Send an HTTP GET probe to classify web / API services."""
+    url = f"http://{host}:{port}/"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "KHUNKHAAR-Recon/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            headers = dict(resp.getheaders())
+            body = resp.read(2048).decode("utf-8", errors="ignore")
+            server = headers.get("Server", headers.get("server", ""))
+            return {"server": server, "body": body[:500], "status": str(resp.status)}
+    except urllib.error.HTTPError as exc:
+        return {"server": str(exc.headers.get("server", "")), "body": "", "status": str(exc.code)}
+    except Exception:
+        return None
+
+
+def probe_graphql_endpoint(host: str, port: int, path: str = "/api/graphql", timeout: float = 1.0) -> bool:
+    """Probe for a GraphQL query endpoint."""
+    url = f"http://{host}:{port}{path}"
+    try:
+        payload = json.dumps({"query": "{ __typename }"}).encode("utf-8")
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+            return bool(data.get("data", {}).get("__typename"))
+    except Exception:
+        return False
