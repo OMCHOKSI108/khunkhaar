@@ -214,3 +214,26 @@ def extract_database_models(root: Path) -> list[ModelDef]:
             pass
 
     return models
+
+
+def extract_documentation_and_business_rules(root: Path) -> dict[str, str]:
+    """Scan docs, READMEs, and architecture files for business rules and domain logic."""
+    doc_snippets: dict[str, str] = {}
+    doc_candidates = [root / "README.md", root / "AGENTS.md", root / "CONTRIBUTING.md", root / "ARCHITECTURE.md"]
+    
+    # Also look into Docs/ and docs/
+    for doc_dir in [root / "Docs", root / "docs", root / "doc"]:
+        if doc_dir.is_dir():
+            doc_candidates.extend(list(doc_dir.glob("*.md"))[:10])
+
+    for doc_file in doc_candidates:
+        if doc_file.is_file():
+            try:
+                rel = str(doc_file.relative_to(root))
+                text = doc_file.read_text(encoding="utf-8", errors="ignore").strip()
+                # Store concise summary / head of each doc (first 1000 chars)
+                if text:
+                    doc_snippets[rel] = text[:1500]
+            except Exception:
+                pass
+    return doc_snippets
