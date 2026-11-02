@@ -183,3 +183,53 @@ def generate_business_workflow_cases(recon: ProjectRecon) -> list[TestCase]:
 
     return cases
 
+
+def generate_ui_flow_cases(recon: ProjectRecon) -> list[TestCase]:
+    """Generate UI flow test cases for Streamlit and frontend pages."""
+    cases: list[TestCase] = []
+    idx = 1
+    ui_pages = [e for e in recon.endpoints if e.kind == "page"]
+    for page in ui_pages:
+        cases.append(TestCase(
+            id=f"TC-UI-{idx:03d}",
+            category="18. End-to-End User Experience & UI Flows",
+            title=f"Page rendering, form submission, and error boundary on {page.name}",
+            priority="P1_HIGH",
+            target_type="ui_page",
+            target=page.name,
+            description=f"Interact with {page.name} via headless browser: load page, fill inputs, submit forms, check console logs",
+            steps=[
+                f"Navigate to {page.path}",
+                "Assert page renders with 0 console errors and clean DOM",
+                "Locate input fields and submit test inputs",
+                "Assert proper success feedback or handled error alerts"
+            ],
+            expected_behavior="Page renders without unhandled exceptions; UI controls behave predictably",
+            assertion_type="dom_and_console"
+        ))
+        idx += 1
+    return cases
+
+
+def generate_test_strategy(recon: ProjectRecon) -> TestStrategy:
+    """Generate comprehensive, prioritized test strategy tailored to project reconnaissance."""
+    all_cases: list[TestCase] = []
+    all_cases.extend(generate_business_workflow_cases(recon))
+    all_cases.extend(generate_rbac_and_privilege_cases(recon))
+    all_cases.extend(generate_idor_test_cases(recon))
+    all_cases.extend(generate_sqli_test_cases(recon))
+    all_cases.extend(generate_ui_flow_cases(recon))
+
+    summary = (
+        f"Generated {len(all_cases)} prioritized test cases for {recon.project_name} "
+        f"({recon.primary_language}, {recon.project_type}) covering RBAC, IDOR, SQLi, "
+        f"business logic, concurrency, and side-effect verifications."
+    )
+
+    return TestStrategy(
+        project_id=recon.project_id,
+        project_name=recon.project_name,
+        summary=summary,
+        test_cases=all_cases,
+    )
+
