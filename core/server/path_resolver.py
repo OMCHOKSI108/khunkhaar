@@ -4,6 +4,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+# The host directory bind-mounted into the container at /workspace (see docker-compose.yml's
+# WORKSPACE_DIR). Defaults to the previous hardcoded path for existing installs.
+HOST_WORKSPACE = os.environ.get("KHUNKHAAR_HOST_WORKSPACE", str(Path.home() / "workspace"))
+CONTAINER_WORKSPACE = "/workspace"
+
 
 def resolve_codebase_path(raw_path: str | None) -> Path | None:
     """Resolve codebase directory, handling container-to-host path mappings."""
@@ -18,17 +23,17 @@ def resolve_codebase_path(raw_path: str | None) -> Path | None:
     if candidate.is_dir():
         return candidate
 
-    # Container mapping 1: /home/omchoksi/workspace -> /workspace
-    if cleaned.startswith("/home/omchoksi/workspace"):
-        rel = cleaned[len("/home/omchoksi/workspace"):].lstrip("/")
-        docker_candidate = Path("/workspace") / rel
+    # Container mapping 1: host workspace path -> /workspace
+    if cleaned.startswith(HOST_WORKSPACE):
+        rel = cleaned[len(HOST_WORKSPACE):].lstrip("/")
+        docker_candidate = Path(CONTAINER_WORKSPACE) / rel
         if docker_candidate.is_dir():
             return docker_candidate
 
-    # Container mapping 2: /workspace -> /home/omchoksi/workspace
-    if cleaned.startswith("/workspace"):
-        rel = cleaned[len("/workspace"):].lstrip("/")
-        host_candidate = Path("/home/omchoksi/workspace") / rel
+    # Container mapping 2: /workspace -> host workspace path
+    if cleaned.startswith(CONTAINER_WORKSPACE):
+        rel = cleaned[len(CONTAINER_WORKSPACE):].lstrip("/")
+        host_candidate = Path(HOST_WORKSPACE) / rel
         if host_candidate.is_dir():
             return host_candidate
 
