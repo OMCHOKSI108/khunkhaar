@@ -57,3 +57,49 @@ def detect_frameworks_and_language(root: Path) -> tuple[str, list[str], str]:
         except Exception:
             pass
     return language, frameworks, project_type
+
+
+def detect_python_and_other_frameworks(root: Path, language: str, frameworks: list[str], project_type: str) -> tuple[str, list[str], str]:
+    """Detect Python, Java, PHP, Go, and Rust frameworks."""
+    # Python
+    py_markers = [root / "pyproject.toml", root / "requirements.txt", root / "setup.py", root / "Pipfile"]
+    for marker in py_markers:
+        if marker.is_file():
+            language = "Python"
+            text = marker.read_text(encoding="utf-8", errors="ignore").lower()
+            if "streamlit" in text:
+                frameworks.append("Streamlit")
+                project_type = "streamlit"
+            if "fastapi" in text:
+                frameworks.append("FastAPI")
+                project_type = "rest-api"
+            if "flask" in text:
+                frameworks.append("Flask")
+            if "django" in text:
+                frameworks.append("Django")
+            if "strawberry" in text or "graphene" in text:
+                frameworks.append("GraphQL")
+            if "sqlalchemy" in text:
+                frameworks.append("SQLAlchemy")
+            break
+
+    # Java
+    if (root / "pom.xml").is_file() or (root / "build.gradle").is_file() or (root / "build.gradle.kts").is_file():
+        language = "Java/Kotlin"
+        project_type = "backend"
+        frameworks.append("Spring Boot")
+
+    # PHP
+    if (root / "composer.json").is_file():
+        language = "PHP"
+        text = (root / "composer.json").read_text(encoding="utf-8", errors="ignore").lower()
+        if "laravel" in text:
+            frameworks.append("Laravel")
+            project_type = "web-app"
+
+    # Go
+    if (root / "go.mod").is_file():
+        language = "Go"
+        project_type = "service"
+
+    return language, frameworks, project_type
