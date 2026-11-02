@@ -5,7 +5,7 @@ import asyncio
 from typing import Callable
 
 from core.recon.scanner import scan_project
-from core.server import agent, store
+from core.server import engine_bridge, store
 from core.server.models import ChecklistItem, ProjectRecord
 from core.server.path_resolver import resolve_codebase_path
 
@@ -48,25 +48,14 @@ async def execute_project_recon(
     push_log(project_id, "⚡ [Crawl Phase 4/5] Synthesizing comprehensive Cyber, RBAC, and Business Invariants...")
     await asyncio.sleep(0.7)
 
-    raw_items = agent.build_compact_checklist(
-        proj.name, endpoints, models, context_notes=proj.description
-    )
-
-    items = [
-        ChecklistItem(
-            id=f"chk-{idx+1:03d}",
-            project_id=project_id,
-            category=r["category"],
-            title=r["title"],
-            description=r["description"],
-            role=r["role"],
-            severity=r["severity"],
-            selected=True,
-            status="pending"
-        )
-        for idx, r in enumerate(raw_items)
-    ]
-
+    items = engine_bridge.generate_checklist(project_id, proj)
     store.save_checklist(project_id, items)
     push_log(project_id, f"✅ [Crawl Phase 5/5] Generated {len(items)} verified test cases. Human Review ready.")
+
+    auth_draft = engine_bridge.auto_configure_auth(project_id, proj)
+    if auth_draft:
+        push_log(project_id, f"🔐 Auto-discovered auth schema: {len(auth_draft.get('roles') or [])} "
+                            f"role(s) from this project's own users table + .env - "
+                            f"multi-role tokens will mint automatically during test runs.")
+
     return items

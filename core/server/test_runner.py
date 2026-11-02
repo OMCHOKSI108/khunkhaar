@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from core.server import logger, store
-from core.server.test_executor import execute_single_test, resolve_target_url
+from core.server import engine_bridge, logger, store
 
 
 async def execute_test_pipeline(project_id: str, selected_ids: list[str]) -> dict[str, int]:
@@ -34,8 +33,10 @@ async def execute_test_pipeline(project_id: str, selected_ids: list[str]) -> dic
         )
         await asyncio.sleep(0.2)
 
-        status, reason, code = execute_single_test(item, target_url)
+        status, reason, _reproduction = engine_bridge.execute_checklist_item(
+            project_id, item, target_url, codebase_dir=proj.root_path if proj else None)
         item.status = status
+        item.comment = reason
 
         if status == "passed":
             passed_count += 1

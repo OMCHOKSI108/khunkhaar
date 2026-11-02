@@ -102,15 +102,49 @@ async def run_single_test_route(project_id: str, test_id: str):
     target_url = (proj.target_urls[0] if proj.target_urls else "http://localhost:8000/api/graphql")
     push_log(project_id, f"⚡ [Single Test] [{target_item.category.upper()}] {target_item.title} (Role: {target_item.role})", level="TEST")
 
-    from core.server.test_executor import execute_single_test
-    status, reason, code = execute_single_test(target_item, target_url, codebase_dir=proj.root_path)
+    from core.server import engine_bridge
+    status, reason, _reproduction = engine_bridge.execute_checklist_item(
+        project_id, target_item, target_url, codebase_dir=proj.root_path)
     target_item.status = status
+    target_item.comment = reason
     store.save_checklist(project_id, items)
 
     lvl = "PASS" if status == "passed" else "FAIL"
     prefix = "✅ [PASS]" if status == "passed" else "🚨 [FAIL]"
     push_log(project_id, f"{prefix} {target_item.title} | {reason}", level=lvl)
     return {"status": status, "reason": reason, "item_id": test_id}
+
+
+@router.post("/{project_id}/auth/suggest")
+async def suggest_auth_config(project_id: str):
+    """Draft an auth.db_mint config block from the project's own schema/auth source via the
+    configured LLM harness. Returns a suggestion only - nothing is written to
+    config/khunkhaar.yaml; the operator reviews and applies it manually."""
+    proj = store.get_project(project_id)
+    if not proj:
+        return JSONResponse({"error": "Project not found"}, status_code=404)
+    from core.server import engine_bridge
+    from core.server.path_resolver import resolve_codebase_path
+
+    codebase_path = resolve_codebase_path(proj.root_path)
+    if not codebase_path:
+        return JSONResponse({"error": "Project root_path is not a resolvable local directory"}, status_code=400)
+
+    push_log(project_id, "🔎 Gathering schema/auth source for LLM-assisted auth config draft...")
+    app_map = engine_bridge.build_app_map(codebase_path)
+    schema_text = engine_bridge.gather_auth_schema_text(codebase_path, app_map)
+    if not schema_text:
+        push_log(project_id, "⚠️ No schema/auth files found to infer from.", level="WARN")
+        return {"status": "empty", "draft": {}}
+
+    draft = agent.suggest_auth_config(schema_text)
+    if not draft:
+        push_log(project_id, "⚠️ LLM auth config draft failed or was unparseable.", level="WARN")
+        return {"status": "failed", "draft": {}}
+
+    push_log(project_id, f"✅ Drafted auth.db_mint with {len(draft.get('roles') or [])} role(s) "
+                        f"- review before enabling in config/khunkhaar.yaml.")
+    return {"status": "ok", "draft": draft}
 
 
 @router.post("/{project_id}/approve")
