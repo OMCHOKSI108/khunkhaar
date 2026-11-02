@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,4 +64,97 @@ class WorkspaceManager:
                 "total_tests": strategy.total_count,
             }
             log_file.write_text(json.dumps(initial_log, indent=2), encoding="utf-8")
+
+    def record_execution(self, test_id: str, status: str, duration_sec: float, details: str = "") -> None:
+        """Record the outcome of a test case in execution-log.json."""
+        log_file = self.workspace_dir / "execution-log.json"
+        log_data = {"completed_tests": {}}
+        if log_file.is_file():
+            try:
+                log_data = json.loads(log_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        log_data.setdefault("completed_tests", {})[test_id] = {
+            "status": status,
+            "duration_sec": duration_sec,
+            "details": details,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        log_file.write_text(json.dumps(log_data, indent=2), encoding="utf-8")
+
+    def record_bug(
+        self,
+        test_id: str,
+        title: str,
+        severity: str,
+        description: str,
+        steps_to_reproduce: list[str],
+        expected_behavior: str,
+        actual_behavior: str,
+        evidence: str = "",
+        payload: str = "",
+    ) -> Path:
+        """Create a structured markdown bug artifact in bugs/."""
+        self.ensure_directories()
+        clean_name = re.sub(r'[^a-zA-Z0-9_-]', '_', f"{test_id}_{title}")[:60].lower()
+        bug_path = self.bugs_dir / f"{clean_name}.md"
+        bug_content = (
+            f"# Bug Report: {title}\n\n"
+            f"- **Test Case ID**: `{test_id}`\n"
+            f"- **Severity**: **{severity}**\n"
+            f"- **Detected**: {datetime.now(timezone.utc).isoformat()}\n\n"
+            f"## Description\n{description}\n\n"
+            f"## Steps to Reproduce\n"
+            + "\n".join(f"{i+1}. {step}" for i, step in enumerate(steps_to_reproduce))
+            + f"\n\n## Expected Behavior\n{expected_behavior}\n\n"
+            f"## Actual Behavior\n{actual_behavior}\n\n"
+            f"## Evidence & Payload\n"
+            f"```\n{payload or 'No raw payload'}\n```\n\n"
+            f"```json\n{evidence or 'No JSON evidence'}\n```\n"
+        )
+        bug_path.write_text(bug_content, encoding="utf-8")
+        return bug_path
+
+    def generate_final_report(self, recon: ProjectRecon, strategy: TestStrategy) -> Path:
+        """Compile a comprehensive Senior QA Engineering audit report."""
+        report_path = self.workspace_dir / "final-report.md"
+        bugs = list(self.bugs_dir.glob("*.md"))
+        log_file = self.workspace_dir / "execution-log.json"
+        completed = {}
+        if log_file.is_file():
+            try:
+                completed = json.loads(log_file.read_text(encoding="utf-8")).get("completed_tests", {})
+            except Exception:
+                pass
+
+        report_lines = [
+            f"# Senior QA & Security Audit Report: {recon.project_name}",
+            f"\n**Audit Date**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+            f"**Target Architecture**: {recon.primary_language} | {recon.project_type} | {', '.join(recon.frameworks)}",
+            f"**Target URL**: {recon.suggested_target_url or 'N/A'}",
+            "\n## Executive Summary",
+            f"- **Total Strategy Test Cases**: {strategy.total_count}",
+            f"- **Executed Tests**: {len(completed)}",
+            f"- **Confirmed Vulnerabilities / Bugs**: {len(bugs)}",
+            "\n## Confirmed Issues & Findings",
+        ]
+
+        if not bugs:
+            report_lines.append("\n*No defects or security issues identified during the test run.*")
+        else:
+            for b in sorted(bugs):
+                report_lines.append(f"\n### {b.stem.replace('_', ' ').title()}\n")
+                report_lines.append(b.read_text(encoding="utf-8"))
+
+        report_lines.extend([
+            "\n## Senior QA Recommendations",
+            "1. **Enforce Parameterized Queries**: Ensure every database query uses ORM parameter binding or parameterized SQL fragments.",
+            "2. **Strict RBAC & Tenant Scoping**: Enforce ownership checks on all single-entity lookups (`where: { id }`).",
+            "3. **Side-Effect Verification**: Ensure notification queues and audit trails are atomically written within database transactions.",
+        ])
+
+        report_path.write_text("\n".join(report_lines), encoding="utf-8")
+        return report_path
+
+
 
