@@ -89,6 +89,30 @@ async def run_recon(project_id: str):
     return {"status": "ok", "items_count": len(items)}
 
 
+@router.post("/{project_id}/tests/{test_id}/run")
+async def run_single_test_route(project_id: str, test_id: str):
+    proj = store.get_project(project_id)
+    if not proj:
+        return JSONResponse({"error": "Project not found"}, status_code=404)
+    items = store.get_checklist(project_id)
+    target_item = next((it for it in items if it.id == test_id), None)
+    if not target_item:
+        return JSONResponse({"error": "Test item not found"}, status_code=404)
+
+    target_url = (proj.target_urls[0] if proj.target_urls else "http://localhost:8000/api/graphql")
+    push_log(project_id, f"⚡ [Single Test] [{target_item.category.upper()}] {target_item.title} (Role: {target_item.role})", level="TEST")
+
+    from core.server.test_executor import execute_single_test
+    status, reason, code = execute_single_test(target_item, target_url, codebase_dir=proj.root_path)
+    target_item.status = status
+    store.save_checklist(project_id, items)
+
+    lvl = "PASS" if status == "passed" else "FAIL"
+    prefix = "✅ [PASS]" if status == "passed" else "🚨 [FAIL]"
+    push_log(project_id, f"{prefix} {target_item.title} | {reason}", level=lvl)
+    return {"status": status, "reason": reason, "item_id": test_id}
+
+
 @router.post("/{project_id}/approve")
 async def approve_and_test(project_id: str, payload: dict):
     selected_ids = payload.get("selected_ids", [])

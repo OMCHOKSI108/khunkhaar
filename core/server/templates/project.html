@@ -283,9 +283,10 @@
               <th style="width: 36px; text-align: center;"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" checked></th>
               <th style="width: 80px;">Category</th>
               <th>Test Case & Invariant</th>
-              <th style="width: 90px;">Role</th>
-              <th style="width: 80px;">Severity</th>
-              <th style="width: 90px;">Status</th>
+              <th style="width: 85px;">Role</th>
+              <th style="width: 75px;">Severity</th>
+              <th style="width: 85px;">Status</th>
+              <th style="width: 75px; text-align: center;">Action</th>
             </tr>
           </thead>
           <tbody id="checklistBody">
@@ -316,10 +317,19 @@
                   {{ item.status | upper }}
                 </span>
               </td>
+              <td style="text-align: center;">
+                <button id="btn-run-{{ item.id }}" onclick="runSingleTest('{{ item.id }}')" style="
+                  background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4);
+                  color: #ef4444; border-radius: 6px; padding: 0.25rem 0.55rem; font-size: 0.75rem;
+                  cursor: pointer; font-weight: 700; transition: all 0.2s;
+                " onmouseover="this.style.background='#ef4444'; this.style.color='#000';" onmouseout="this.style.background='rgba(239,68,68,0.12)'; this.style.color='#ef4444';" title="Run this single test">
+                  ⚡ Run
+                </button>
+              </td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+              <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">
                 No test checklist generated yet. Click <strong>"TEST PROJECT"</strong> on the left to trigger Pikachu reconnaissance.
               </td>
             </tr>
@@ -500,6 +510,54 @@
       btn.textContent = '⚡ RETRY TESTS';
     } finally {
       pika.classList.remove('pika-firing');
+    }
+  // Single Test Execution (One Test At A Time)
+  async function runSingleTest(testId) {
+    const btn = document.getElementById(`btn-run-${testId}`);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+
+    const badge = document.getElementById(`status-${testId}`);
+    if (badge) {
+      badge.textContent = 'RUNNING';
+      badge.style.background = 'rgba(250,204,21,0.15)';
+      badge.style.color = '#facc15';
+      badge.style.border = '1px solid #facc15';
+    }
+
+    const pika = document.getElementById('pikaSprite');
+    pika.classList.add('pika-firing');
+    document.getElementById('pikaBadge').textContent = '⚡ EXECUTING TEST';
+    document.getElementById('pikaBadge').style.background = '#facc15';
+    document.getElementById('pikaBadge').style.color = '#000';
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tests/${testId}/run`, { method: 'POST' });
+      const data = await res.json();
+      if (badge) {
+        badge.textContent = (data.status || 'DONE').toUpperCase();
+        if (data.status === 'passed') {
+          badge.style.background = 'rgba(16,185,129,0.15)';
+          badge.style.color = '#10b981';
+          badge.style.border = '1px solid #10b981';
+        } else {
+          badge.style.background = 'rgba(239,68,68,0.15)';
+          badge.style.color = '#ef4444';
+          badge.style.border = '1px solid #ef4444';
+        }
+      }
+    } catch (err) {
+      console.error('Single test run failed:', err);
+      if (badge) {
+        badge.textContent = 'ERROR';
+        badge.style.background = 'rgba(239,68,68,0.15)';
+        badge.style.color = '#ef4444';
+      }
+    } finally {
+      pika.classList.remove('pika-firing');
+      document.getElementById('pikaBadge').textContent = '● READY TO STRIKE';
+      document.getElementById('pikaBadge').style.background = 'rgba(250,204,21,0.15)';
+      document.getElementById('pikaBadge').style.color = '#facc15';
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Run'; }
     }
   }
 </script>
