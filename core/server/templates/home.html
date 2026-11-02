@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 900px; margin: 3rem auto; text-align: center;">
+  <h1 style="font-size: 2.8rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem;">
+    Hello, This is <span style="color: var(--accent);">Khunkhaar QA</span>
+  </h1>
+  <p style="color: var(--text-muted); font-size: 1.1rem; margin-bottom: 3rem;">
+    Autonomous Senior QA Engineering, Security Auditing & Deep Multi-Role Verification
+  </p>
+
+  <!-- Big Central Plus Button -->
+  <div style="margin: 2rem 0;">
+    <button onclick="document.getElementById('createModal').style.display='flex'" style="
+      width: 96px; height: 96px; border-radius: 50%; background: var(--card-bg);
+      border: 2px dashed var(--accent); color: var(--accent); font-size: 3rem;
+      cursor: pointer; transition: all 0.2s ease; box-shadow: 0 0 25px var(--accent-glow);
+    " onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+      +
+    </button>
+    <div style="margin-top: 1rem; font-weight: 600; color: var(--text-muted); font-size: 0.95rem;">
+      Create New QA Project
+    </div>
+  </div>
+
+  <!-- Existing Projects -->
+  {% if projects %}
+  <div style="margin-top: 4rem; text-align: left;">
+    <h3 style="font-size: 1.2rem; color: var(--text-muted); margin-bottom: 1rem;">Active QA Projects</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
+      {% for p in projects %}
+      <a href="/projects/{{ p.id }}" style="
+        display: block; background: var(--card-bg); border: 1px solid var(--card-border);
+        border-radius: 12px; padding: 1.25rem; transition: border-color 0.2s;
+      " onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--card-border)'">
+        <h4 style="color: #fff; font-size: 1.15rem; margin-bottom: 0.4rem;">{{ p.name }}</h4>
+        <p style="color: var(--text-muted); font-size: 0.85rem; font-family: 'JetBrains Mono'; margin-bottom: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          {{ p.root_path or p.github_url or 'Remote Target' }}
+        </p>
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+          {% for t in p.tags %}
+          <span style="background: rgba(255,255,255,0.06); font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 4px; color: var(--text-muted);">{{ t }}</span>
+          {% endfor %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal -->
+<div id="createModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); align-items: center; justify-content: center; z-index: 100;">
+  <div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; width: 100%; max-width: 540px; padding: 2rem;">
+    <h2 style="margin-bottom: 1.5rem; font-size: 1.5rem;">New Project Setup</h2>
+    
+    <label style="display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--text-muted);">Project Name *</label>
+    <input id="pName" type="text" placeholder="e.g. Lwhub Main Server" style="width: 100%; padding: 0.75rem; background: var(--bg); border: 1px solid var(--card-border); border-radius: 8px; color: #fff; margin-bottom: 1rem;">
+
+    <label style="display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--text-muted);">Local Codebase Path (Optional)</label>
+    <input id="pPath" type="text" placeholder="/home/omchoksi/workspace/internship/Lwhub/lw-hub-main-server" style="width: 100%; padding: 0.75rem; background: var(--bg); border: 1px solid var(--card-border); border-radius: 8px; color: #fff; margin-bottom: 1rem; font-family: 'JetBrains Mono';">
+
+    <label style="display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--text-muted);">GitHub Repository URL (Optional)</label>
+    <input id="pRepo" type="text" placeholder="https://github.com/org/repo" style="width: 100%; padding: 0.75rem; background: var(--bg); border: 1px solid var(--card-border); border-radius: 8px; color: #fff; margin-bottom: 1rem;">
+
+    <label style="display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--text-muted);">Project Tags (Click to Select)</label>
+    <div id="tagPills" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+      {% set all_tags = ["GraphQL", "Express", "FastAPI", "Next.js", "PostgreSQL", "Redis", "RBAC", "Full-Stack", "Microservices"] %}
+      {% for tag in all_tags %}
+      <span class="tag-btn" onclick="toggleTag(this, '{{ tag }}')" style="cursor: pointer; border: 1px solid var(--card-border); border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; color: var(--text-muted);">
+        {{ tag }}
+      </span>
+      {% endfor %}
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <button onclick="document.getElementById('createModal').style.display='none'" style="padding: 0.65rem 1.25rem; background: transparent; border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-muted); cursor: pointer;">Cancel</button>
+      <button onclick="submitProject()" style="padding: 0.65rem 1.5rem; background: var(--accent); border: none; border-radius: 8px; color: #090d16; font-weight: 700; cursor: pointer;">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let selectedTags = [];
+  function toggleTag(el, tag) {
+    if (selectedTags.includes(tag)) {
+      selectedTags = selectedTags.filter(t => t !== tag);
+      el.style.background = 'transparent';
+      el.style.borderColor = 'var(--card-border)';
+      el.style.color = 'var(--text-muted)';
+    } else {
+      selectedTags.push(tag);
+      el.style.background = 'rgba(16,185,129,0.15)';
+      el.style.borderColor = 'var(--accent)';
+      el.style.color = '#10b981';
+    }
+  }
+
+  async function submitProject() {
+    const name = document.getElementById('pName').value.trim();
+    if (!name) return alert('Please enter a project name');
+    const root_path = document.getElementById('pPath').value.trim();
+    const github_url = document.getElementById('pRepo').value.trim();
+
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, root_path, github_url, tags: selectedTags })
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      window.location.href = `/projects/${data.project.id}`;
+    }
+  }
+</script>
+{% endblock %}
