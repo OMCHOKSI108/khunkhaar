@@ -390,24 +390,33 @@
     await saveContext();
     const btn = document.getElementById('btnTestProject');
     btn.disabled = true;
-    btn.textContent = '⚡ PIKACHU FIRING THUNDERBOLT...';
+    btn.textContent = '⚡ CRAWLING CODEBASE & GATHERING TESTS...';
     
     // Trigger Pikachu Fire Animation
     const pika = document.getElementById('pikaSprite');
     pika.classList.add('pika-firing');
-    document.getElementById('pikaBadge').textContent = '⚡ THUNDERBOLT ACTIVE';
+    document.getElementById('pikaBadge').textContent = '⚡ CRAWL & SYNTHESIS ACTIVE';
     document.getElementById('pikaBadge').style.background = '#facc15';
     document.getElementById('pikaBadge').style.color = '#000';
 
-    const res = await fetch(`/api/projects/${projectId}/recon`, { method: 'POST' });
-    const data = await res.json();
-
-    setTimeout(() => {
-      pika.classList.remove('pika-firing');
-      btn.disabled = false;
-      btn.textContent = '⚡ RE-TEST PROJECT';
-      window.location.reload();
-    }, 1500);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/recon`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        document.getElementById('pikaBadge').textContent = `✅ ${data.items_count} TESTS READY`;
+        document.getElementById('pikaBadge').style.background = '#10b981';
+        document.getElementById('pikaBadge').style.color = '#000';
+      }
+    } catch (err) {
+      console.error('Recon error:', err);
+    } finally {
+      setTimeout(() => {
+        pika.classList.remove('pika-firing');
+        btn.disabled = false;
+        btn.textContent = '⚡ RE-TEST PROJECT';
+        window.location.reload();
+      }, 800);
+    }
   }
 
   // Checkbox controls

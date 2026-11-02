@@ -88,29 +88,8 @@ async def run_recon(project_id: str):
     proj = store.get_project(project_id)
     if not proj:
         return JSONResponse({"error": "Project not found"}, status_code=404)
-    push_log(project_id, "Phase 1: Gathering project context & reading memory...")
-    await asyncio.sleep(0.3)
-    endpoints, models = [], []
-    if proj.root_path and Path(proj.root_path).is_dir():
-        push_log(project_id, f"Phase 2: Deep AST scanning in {proj.root_path}...")
-        from core.recon.scanner import scan_project
-        recon = scan_project(Path(proj.root_path))
-        endpoints = [{"name": e.name, "path": e.path, "method": e.method} for e in recon.endpoints]
-        models = [m.name for m in recon.models]
-        push_log(project_id, f"Discovered {len(endpoints)} endpoints and {len(models)} DB models.")
-    push_log(project_id, "Phase 3: Inspecting .env and local database connections...")
-    push_log(project_id, "Phase 4: Synthesizing multi-role RBAC & cybersecurity checklist...")
-    raw = agent.build_compact_checklist(proj.name, endpoints, models)
-    items = [
-        ChecklistItem(
-            id=f"chk-{idx+1:03d}", project_id=project_id, category=r["category"],
-            title=r["title"], description=r["description"], role=r["role"],
-            severity=r["severity"], selected=True, status="pending"
-        )
-        for idx, r in enumerate(raw)
-    ]
-    store.save_checklist(project_id, items)
-    push_log(project_id, f"Test Checklist ready with {len(items)} items. Awaiting Human Review.")
+    from core.server import recon_service
+    items = await recon_service.execute_project_recon(project_id, proj, push_log)
     return {"status": "ok", "items_count": len(items)}
 
 

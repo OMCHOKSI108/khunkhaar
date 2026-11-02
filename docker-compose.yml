@@ -17,3 +17,4 @@ services:
       - ./evidence:/app/evidence
       - ./reports:/app/reports
       - /home/omchoksi/workspace:/workspace:ro
+      - /home/omchoksi/workspace:/home/omchoksi/workspace:ro
