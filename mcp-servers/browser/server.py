@@ -225,6 +225,27 @@ async def browser_status() -> dict[str, Any]:
     }
 
 
+from core.browser.a11y.mcp_tools import (
+    browser_focus_inspect,
+    browser_form_inspect,
+    browser_journey_execute,
+    browser_keyboard_inspect,
+    browser_responsive_inspect,
+    browser_ux_report,
+    browser_visual_compare,
+)
+
+server.tool(description="Inspect keyboard navigation sequence")(browser_keyboard_inspect)
+server.tool(description="Build directed focus transition graph")(browser_focus_inspect)
+server.tool(description="Audit form accessibility")(browser_form_inspect)
+server.tool(description="Inspect responsive layout against viewport matrix")(browser_responsive_inspect)
+server.tool(description="Compare current page visual layout against stored baseline image")(browser_visual_compare)
+server.tool(description="Execute structured user journey")(browser_journey_execute)
+server.tool(description="Run full UX intelligence audit")(browser_ux_report)
+
+
 if __name__ == "__main__":
     logger.info("starting khunkhaar-browser MCP server over stdio")
     server.run(transport="stdio")
+
+
