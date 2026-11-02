@@ -25,6 +25,7 @@ from core.shared.config import current
 from core.shared.http_client import PolicyViolation, RequestSpec, TargetDenied, execute, graphql
 
 TESTED_KINDS = {"rest", "graphql_query", "graphql_mutation"}
+MAX_LLM_QUERY_CALLS = 60
 
 
 def resolve_target_url(raw_url: str) -> str:
@@ -156,8 +157,13 @@ def generate_checklist(project_id: str, proj) -> list[ChecklistItem]:
     seen_paths = {(e.method, e.path) for e in recon.endpoints}
     recon.endpoints.extend(e for e in mapper_rest if (e.method, e.path) not in seen_paths)
     cfg = current()
+    # Per-project auto-discovered roles (what auth_harvester actually mints tokens for) take
+    # priority over the global manual auth.db_mint block - otherwise the matrix generates
+    # generic "authenticated" items that never match a real minted token key.
+    project_schema = store.get_project_auth_config(project_id)
     mint_cfg = cfg.section("auth").get("db_mint") or {}
-    role_keys = sorted({r.get("key") for r in (mint_cfg.get("roles") or []) if r.get("key")})
+    roles_source = (project_schema or {}).get("roles") or mint_cfg.get("roles") or []
+    role_keys = sorted({r.get("key") for r in roles_source if r.get("key")})
     privileged_keys = {"admin"}
     all_roles = ["unauthenticated"] + (role_keys or ["authenticated"])
     max_total = int(cfg.get("missions", "max_total", 400))
@@ -165,9 +171,20 @@ def generate_checklist(project_id: str, proj) -> list[ChecklistItem]:
     items: list[ChecklistItem] = []
     specs: dict[str, dict[str, Any]] = {}
     idx = 0
+    # One LLM call per unique GraphQL field, not per test: a "study" step that builds a
+    # realistic query/mutation body (plausible args) instead of a blind `{ name { __typename } }`
+    # probe, reused across every role variant of that same endpoint's checklist items. Capped so
+    # a large schema can't turn one recon pass into hundreds of sequential LLM calls.
+    query_cache: dict[tuple[str, str], str | None] = {}
+    llm_calls_left = MAX_LLM_QUERY_CALLS
     for ep in recon.endpoints:
         if ep.kind not in TESTED_KINDS:
             continue
+        if ep.kind in ("graphql_query", "graphql_mutation") and llm_calls_left > 0:
+            cache_key = (ep.kind, ep.name)
+            if cache_key not in query_cache:
+                query_cache[cache_key] = agent.build_graphql_call(ep.name, ep.kind, ep.description)
+                llm_calls_left -= 1
         for role in all_roles:
             classified = _classify(ep, role, privileged_keys)
             if classified is None:
@@ -181,7 +198,8 @@ def generate_checklist(project_id: str, proj) -> list[ChecklistItem]:
                 selected=True, status="pending",
             ))
             specs[item_id] = {
-                "endpoint": {"name": ep.name, "kind": ep.kind, "path": ep.path, "method": ep.method},
+                "endpoint": {"name": ep.name, "kind": ep.kind, "path": ep.path, "method": ep.method,
+                            "query_override": query_cache.get((ep.kind, ep.name))},
                 "role": role, "assertion": assertion,
             }
             if len(items) >= max_total:
@@ -199,12 +217,14 @@ def generate_checklist(project_id: str, proj) -> list[ChecklistItem]:
     return items
 
 
-def _send(kind: str, method: str, name: str, path: str, url: str, token: str | None) -> dict[str, Any]:
+def _send(kind: str, method: str, name: str, path: str, url: str, token: str | None,
+         query_override: str | None = None) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         if kind in ("graphql_query", "graphql_mutation"):
             verb = "query" if kind == "graphql_query" else "mutation"
-            result = graphql(url, f"{verb} {{ {name} {{ __typename }} }}", None, None, headers=headers)
+            body = query_override or f"{verb} {{ {name} {{ __typename }} }}"
+            result = graphql(url, body, None, None, headers=headers)
         else:
             full_url = url.rstrip("/") + path if path.startswith("/") else f"{url.rstrip('/')}/{path}"
             spec = RequestSpec(method=method, url=full_url, headers=headers)
@@ -266,7 +286,7 @@ def _db_state_note(spec: dict[str, Any]) -> str | None:
 SCHEMA_GLOBS = ("**/schema.prisma", "**/migrations/*.sql", "**/models.py", "**/models/*.py",
                "**/models/*.js", "**/models/*.ts")
 MAX_SCHEMA_FILES = 10
-MAX_CHARS_PER_FILE = 2000
+MAX_CHARS_PER_FILE = 4000
 
 
 def gather_auth_schema_text(codebase_path, app_map=None) -> str:
@@ -368,7 +388,8 @@ def execute_checklist_item(project_id: str, item: ChecklistItem, target_url: str
 
     attempts: list[tuple[bool, str]] = []
     for _ in range(2):
-        result = _send(ep["kind"], ep["method"], ep["name"], ep["path"], url, token)
+        result = _send(ep["kind"], ep["method"], ep["name"], ep["path"], url, token,
+                      query_override=ep.get("query_override"))
         if result.get("status_code") is None and not result.get("graphql_errors") and result.get("error"):
             return ("failed", f"Target unreachable at {url}: {result['error']}", {})
         attempts.append(_violated(spec["assertion"], role, result))

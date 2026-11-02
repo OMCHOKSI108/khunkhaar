@@ -282,12 +282,20 @@
           <h4 style="font-size: 1.1rem; color: #fff;">Test Checklist Sheet</h4>
           <p style="color: var(--text-muted); font-size: 0.78rem;">Human review phase: select/deselect, inspect role boundaries and invariants.</p>
         </div>
-        <button id="btnApprove" onclick="approveAndExecute()" style="
-          padding: 0.65rem 1.25rem; background: var(--accent); border: none; border-radius: 8px;
-          color: #000; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 0 15px rgba(16,185,129,0.25);
-        ">
-          ✅ APPROVE & RUN SELECTED
-        </button>
+        <div style="display: flex; gap: 0.6rem;">
+          <button id="btnApprove" onclick="approveAndExecute()" style="
+            padding: 0.65rem 1.25rem; background: var(--accent); border: none; border-radius: 8px;
+            color: #000; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 0 15px rgba(16,185,129,0.25);
+          ">
+            ✅ APPROVE & RUN SELECTED
+          </button>
+          <button id="btnStop" onclick="stopTestRun()" style="
+            display: none; padding: 0.65rem 1.25rem; background: #ef4444; border: none; border-radius: 8px;
+            color: #fff; font-weight: 800; font-size: 0.88rem; cursor: pointer;
+          ">
+            ⏹ STOP
+          </button>
+        </div>
       </div>
 
       <div style="border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden;">
@@ -477,13 +485,28 @@
   }
 
   // Human Review & Approve Execution
+  let stopRequested = false;
+
+  function stopTestRun() {
+    stopRequested = true;
+    const stage = document.getElementById('stageLabel');
+    if (stage) stage.textContent = '⏹ Stopping after the current test...';
+    const stopBtn = document.getElementById('btnStop');
+    if (stopBtn) { stopBtn.disabled = true; stopBtn.textContent = '⏹ Stopping...'; }
+  }
+
+  // Runs selected tests one at a time (not a server-side batch): each test's REAL result
+  // updates its own row the moment it finishes, and Stop takes effect between tests.
   async function approveAndExecute() {
     const selected = Array.from(document.querySelectorAll('.chk-item:checked')).map(c => c.value);
     if (!selected.length) return alert('Please select at least one test case to approve.');
 
+    stopRequested = false;
     const btn = document.getElementById('btnApprove');
+    const stopBtn = document.getElementById('btnStop');
     btn.disabled = true;
-    btn.textContent = '⚡ RUNNING LIVE TEST SUITE...';
+    btn.textContent = '⚡ RUNNING...';
+    if (stopBtn) { stopBtn.style.display = 'inline-block'; stopBtn.disabled = false; stopBtn.textContent = '⏹ STOP'; }
 
     const pika = document.getElementById('pikaSprite');
     pika.classList.add('pika-firing');
@@ -492,11 +515,13 @@
     const bar = document.getElementById('testProgressBar');
     const counter = document.getElementById('testCounterLabel');
     const stage = document.getElementById('stageLabel');
+    const total = selected.length;
+    let passed = 0, failed = 0, executed = 0;
 
-    stage.textContent = `Executing ${selected.length} tests against API target...`;
-    bar.style.width = '20%';
+    for (const id of selected) {
+      if (stopRequested) break;
+      executed++;
 
-    selected.forEach(id => {
       const badge = document.getElementById(`status-${id}`);
       if (badge) {
         badge.textContent = 'RUNNING';
@@ -504,41 +529,46 @@
         badge.style.color = '#facc15';
         badge.style.border = '1px solid #facc15';
       }
-    });
+      stage.textContent = `Testing ${executed}/${total}: ${id}...`;
+      bar.style.width = `${Math.round((executed / total) * 100)}%`;
 
-    try {
-      const res = await fetch(`/api/projects/${projectId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selected_ids: selected })
-      });
-      const data = await res.json();
-      bar.style.width = '100%';
-      counter.textContent = `${data.total} / ${data.total} Executed`;
-      stage.textContent = `Completed: ${data.passed} Passed, ${data.failed} Failed.`;
-
-      document.getElementById('pikaBadge').textContent = '● BATTLE COMPLETE';
-      document.getElementById('pikaBadge').style.background = 'rgba(16,185,129,0.15)';
-      document.getElementById('pikaBadge').style.color = '#10b981';
-      btn.textContent = '✅ Tests Completed';
-      btn.disabled = false;
-
-      selected.forEach(id => {
-        const badge = document.getElementById(`status-${id}`);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tests/${id}/run`, { method: 'POST' });
+        const data = await res.json();
+        const ok = data.status === 'passed';
+        ok ? passed++ : failed++;
         if (badge) {
-          badge.textContent = 'PASSED';
-          badge.style.background = 'rgba(16,185,129,0.15)';
-          badge.style.color = '#10b981';
-          badge.style.border = '1px solid #10b981';
+          badge.textContent = (data.status || 'done').toUpperCase();
+          badge.title = data.reason || '';
+          badge.style.background = ok ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+          badge.style.color = ok ? '#10b981' : '#ef4444';
+          badge.style.border = `1px solid ${ok ? '#10b981' : '#ef4444'}`;
         }
-      });
-    } catch (err) {
-      stage.textContent = `Test run error: ${err}`;
-      btn.disabled = false;
-      btn.textContent = '⚡ RETRY TESTS';
-    } finally {
-      pika.classList.remove('pika-firing');
+      } catch (err) {
+        failed++;
+        if (badge) {
+          badge.textContent = 'ERROR';
+          badge.title = String(err);
+          badge.style.background = 'rgba(239,68,68,0.15)';
+          badge.style.color = '#ef4444';
+        }
+      }
+      counter.textContent = `${executed} / ${total} Executed`;
     }
+
+    stage.textContent = stopRequested
+      ? `⏹ Stopped after ${executed}/${total}: ${passed} Passed, ${failed} Failed.`
+      : `Completed: ${passed} Passed, ${failed} Failed.`;
+
+    document.getElementById('pikaBadge').textContent = stopRequested ? '⏹ STOPPED' : '● BATTLE COMPLETE';
+    document.getElementById('pikaBadge').style.background = stopRequested ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)';
+    document.getElementById('pikaBadge').style.color = stopRequested ? '#ef4444' : '#10b981';
+    pika.classList.remove('pika-firing');
+    btn.disabled = false;
+    btn.textContent = stopRequested ? '⚡ RUN SELECTED AGAIN' : '✅ Tests Completed';
+    if (stopBtn) stopBtn.style.display = 'none';
+  }
+
   // Single Test Execution (One Test At A Time)
   async function runSingleTest(testId) {
     const btn = document.getElementById(`btn-run-${testId}`);
