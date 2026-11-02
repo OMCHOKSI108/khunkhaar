@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  khunkhaar-server:
+    build: .
+    container_name: khunkhaar-qa-server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8899}:8899"
+    environment:
+      - KHUNKHAAR_HARNESS=auto
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - CF_API_TOKEN=${CF_API_TOKEN}
+      - CF_ACCOUNT_ID=${CF_ACCOUNT_ID}
+    volumes:
+      - ./data:/app/data
+      - ./evidence:/app/evidence
+      - ./reports:/app/reports
+      - /home/omchoksi/workspace:/workspace:ro
