@@ -405,6 +405,19 @@ def cmd_doctor(json_output: bool) -> int:
     checks.append({"tool": "disk", "status": "ok" if free > 5 * 1024**3 else "low",
                    "version": f"{free / 1024**3:.1f} GiB free", "detail": None})
 
+    # LLM harness availability
+    try:
+        from core.llm.harness import harness_status
+        for hs in harness_status():
+            checks.append({
+                "tool": f"llm-{hs['harness']}",
+                "status": "ok" if hs["available"] else "needs-env",
+                "version": hs["note"],
+                "detail": None if hs["available"] else f"Set env vars to enable {hs['harness']} harness",
+            })
+    except Exception as exc:
+        checks.append({"tool": "llm-harness", "status": "failed", "version": None, "detail": str(exc)})
+
     for entry in checks:
         store.record_tool_health(entry["tool"], entry["status"], entry.get("version"), entry.get("detail"))
 
