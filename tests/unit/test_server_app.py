@@ -79,3 +79,35 @@ def test_web_routes_integration():
     proj_resp = client.get(f"/projects/{p_id}")
     assert proj_resp.status_code == 200
     assert "LiveApp" in proj_resp.text
+
+
+def test_sandbox_api_routes():
+    app = create_web_app()
+    client = TestClient(app)
+
+    # 1. Run python in sandbox
+    run_resp = client.post("/api/sandbox/run", json={
+        "script": "print('FASTAPI_SANDBOX_SUCCESS')",
+        "language": "python",
+        "network_policy": "none",
+    })
+    assert run_resp.status_code == 200
+    data = run_resp.json()
+    assert data["status"] == "COMPLETED"
+    assert "FASTAPI_SANDBOX_SUCCESS" in data["stdout"]
+    exec_id = data["execution_id"]
+
+    # 2. Get status
+    st_resp = client.get(f"/api/sandbox/{exec_id}/status")
+    assert st_resp.status_code == 200
+    assert st_resp.json()["id"] == exec_id
+
+    # 3. Get logs
+    log_resp = client.get(f"/api/sandbox/{exec_id}/logs")
+    assert log_resp.status_code == 200
+    assert "FASTAPI_SANDBOX_SUCCESS" in log_resp.json()["stdout"]
+
+    # 4. Clean up
+    del_resp = client.delete(f"/api/sandbox/{exec_id}")
+    assert del_resp.status_code == 200
+
