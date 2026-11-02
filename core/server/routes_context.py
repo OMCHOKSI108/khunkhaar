@@ -52,6 +52,13 @@ async def trace_flow(project_id: str, entry_symbol: str, depth: int = 3):
     return {"status": "ok", "entry": entry_symbol, "flow": flow}
 
 
+@context_router.get("/history")
+async def get_context_history(project_id: str):
+    from core.server import vector_store
+    contexts = vector_store.get_project_contexts(project_id)
+    return {"status": "ok", "contexts": contexts}
+
+
 @context_router.post("/benchmark")
 async def run_benchmark(project_id: str, payload: dict):
     queries = payload.get("queries", [])

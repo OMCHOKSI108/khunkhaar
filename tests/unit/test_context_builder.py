@@ -71,3 +71,24 @@ def test_benchmark_evaluator():
     report = benchmark.run_accuracy_benchmark("proj_test", queries)
     assert "metrics" in report
     assert "recall_at_1" in report["metrics"]
+
+
+def test_semantic_chunker_and_context_id(tmp_path: Path):
+    from core.context_builder import semantic_chunker
+    from core.server import vector_store
+
+    f = tmp_path / "auth.ts"
+    f.write_text("export function verifyToken(token: string) {\n  return token.length > 5;\n}\n")
+    sym = CodeSymbol("s1", "p_ctx", "verifyToken", "function", "auth.ts", 1, 3, "verifyToken(token)")
+    chunks = semantic_chunker.chunk_file_by_ast("MyProj", f, "auth.ts", [sym])
+    assert len(chunks) == 1
+    assert "Symbol: verifyToken" in chunks[0]["content"]
+    assert "Source Code:" in chunks[0]["content"]
+
+    ctx_id = vector_store.create_project_context("p_ctx", "MyProj", 1, ["TypeScript"])
+    assert ctx_id.startswith("ctx-")
+    indexed = vector_store.index_semantic_chunks("p_ctx", ctx_id, chunks)
+    assert indexed == 1
+
+    stored_ctxs = vector_store.get_project_contexts("p_ctx")
+    assert any(c["id"] == ctx_id for c in stored_ctxs)
