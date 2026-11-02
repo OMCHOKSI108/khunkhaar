@@ -237,3 +237,67 @@ def extract_documentation_and_business_rules(root: Path) -> dict[str, str]:
             except Exception:
                 pass
     return doc_snippets
+
+
+def extract_environment_variables(root: Path) -> list[str]:
+    """Safely extract environment variable names without leaking secrets."""
+    keys: set[str] = set()
+    env_files = [root / ".env.example", root / ".env.sample", root / ".env.template", root / ".env"]
+    for env_file in env_files:
+        if env_file.is_file():
+            try:
+                for line in env_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k = line.split("=", 1)[0].strip()
+                        if k and re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', k):
+                            keys.add(k)
+            except Exception:
+                pass
+    return sorted(keys)
+
+
+def scan_project(root: Path | str = ".") -> ProjectRecon:
+    """Perform comprehensive, universal reconnaissance of a target repository."""
+    root_path = Path(root).resolve()
+    lang, frameworks, proj_type = detect_frameworks_and_language(root_path)
+    lang, frameworks, proj_type = detect_python_and_other_frameworks(root_path, lang, frameworks, proj_type)
+
+    # Active services on local ports
+    active_ports = discover_active_services()
+
+    # Endpoints
+    endpoints = extract_graphql_endpoints(root_path)
+    endpoints.extend(extract_rest_and_ui_routes(root_path))
+
+    # Database models
+    models = extract_database_models(root_path)
+
+    # Business documentation
+    docs = extract_documentation_and_business_rules(root_path)
+
+    # Environment variables
+    env_vars = extract_environment_variables(root_path)
+
+    # Auth mechanisms
+    auth_mechanisms: list[str] = []
+    if any(ep.auth_required for ep in endpoints):
+        auth_mechanisms.append("RBAC / Token-based")
+    if any("jwt" in k.lower() for k in env_vars):
+        auth_mechanisms.append("JWT")
+    if any("oauth" in k.lower() for k in env_vars):
+        auth_mechanisms.append("OAuth")
+
+    return ProjectRecon(
+        root_path=str(root_path),
+        project_name=root_path.name,
+        primary_language=lang,
+        frameworks=sorted(set(frameworks)),
+        project_type=proj_type,
+        endpoints=endpoints,
+        models=models,
+        active_ports=active_ports,
+        auth_mechanisms=auth_mechanisms,
+        env_vars=env_vars,
+        business_rules_docs=docs,
+    )
