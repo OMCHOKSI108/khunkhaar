@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from core.server import logger, store
 from core.server.routes import router
 from core.server.routes_context import context_router
+from core.server.routes_sandbox import sandbox_router
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 
@@ -22,6 +23,7 @@ def create_web_app() -> FastAPI:
     templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
     app.include_router(router)
     app.include_router(context_router)
+    app.include_router(sandbox_router)
 
     @app.get("/", response_class=HTMLResponse)
     async def home(request: Request):
