@@ -122,3 +122,64 @@ def generate_rbac_and_privilege_cases(recon: ProjectRecon) -> list[TestCase]:
                 break
     return cases
 
+
+def generate_business_workflow_cases(recon: ProjectRecon) -> list[TestCase]:
+    """Generate business logic, side-effect, and state lifecycle test cases."""
+    cases: list[TestCase] = []
+    # Check for approval / request domains in endpoints and docs
+    has_approval = any("approv" in e.name.lower() or "leave" in e.name.lower() or "wfh" in e.name.lower() for e in recon.endpoints)
+
+    if has_approval:
+        cases.append(TestCase(
+            id="TC-BIZ-001",
+            category="1. Business Logic & Domain Workflows",
+            title="Multi-stage approval workflow and role handoff",
+            priority="P0_CRITICAL",
+            target_type="workflow",
+            target="RequestApprovalChain",
+            description="End-to-end lifecycle: User creates request -> Pod Lead approves -> Manager receives and approves",
+            steps=[
+                "User applies for Request/Leave via mutation",
+                "Pod Lead reviews and approves request via podApprovalRequest",
+                "Manager reviews pending approval and approves via managerApprovalRequest",
+                "Verify final status transitions to APPROVED across all stages"
+            ],
+            expected_behavior="Request cleanly traverses all approval states in sequential order",
+            assertion_type="state_and_side_effects"
+        ))
+
+        cases.append(TestCase(
+            id="TC-SIDE-001",
+            category="5. Side Effects, Event Logs & Notifications",
+            title="Notification dispatch and audit event logging on approval",
+            priority="P1_HIGH",
+            target_type="workflow",
+            target="ApprovalNotifications",
+            description="Verify notifications and event logs are emitted when a request is approved",
+            steps=[
+                "Pod Lead approves a pending request",
+                "Query Manager's pending notifications or notification records",
+                "Inspect eventLogsEntries table for audit trail record"
+            ],
+            expected_behavior="Notification record created for Manager and corresponding audit entry in event logs",
+            assertion_type="notification_and_db_audit"
+        ))
+
+        cases.append(TestCase(
+            id="TC-CONC-001",
+            category="13. Concurrency, Race Conditions & Atomicity",
+            title="Simultaneous double-submission / race condition check",
+            priority="P1_HIGH",
+            target_type="workflow",
+            target="ConcurrentApplication",
+            description="Attempt submitting two duplicate or overlapping requests in concurrent requests",
+            steps=[
+                "Send two simultaneous requests for the same date window concurrently",
+                "Inspect database for duplicate rows or conflicting approvals"
+            ],
+            expected_behavior="System must reject the conflicting duplicate or handle atomic conflict gracefully",
+            assertion_type="atomicity_invariant"
+        ))
+
+    return cases
+
