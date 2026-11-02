@@ -2,217 +2,256 @@
 {% block title %}{{ project.name }} — KHUNKHAAR QA{% endblock %}
 {% block head %}
 <style>
-  .split-container {
+  :root {
+    --bg: #000000;
+    --card-bg: #070707;
+    --card-border: #171717;
+    --card-hover: #222222;
+    --accent: #10b981;
+    --pika-yellow: #facc15;
+    --pika-glow: rgba(250, 204, 21, 0.35);
+  }
+  .split-50-50 {
     display: grid;
-    grid-template-columns: 480px 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
     height: calc(100vh - 110px);
   }
-  .card-pane {
+  .pane {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: 14px;
+    border-radius: 16px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 4px 25px rgba(0,0,0,0.8);
   }
   .pane-header {
-    padding: 0.9rem 1.25rem;
+    padding: 1rem 1.25rem;
     border-bottom: 1px solid var(--card-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.015);
   }
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  .msg-bubble {
-    max-width: 85%;
-    padding: 0.75rem 1rem;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    line-height: 1.45;
-  }
-  .msg-user {
-    align-self: flex-end;
-    background: rgba(16, 185, 129, 0.15);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    color: #e5e7eb;
-  }
-  .msg-agent {
-    align-self: flex-start;
-    background: rgba(255,255,255,0.04);
+  .input-box {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    background: #020202;
     border: 1px solid var(--card-border);
+    border-radius: 8px;
     color: #f3f4f6;
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-box:focus {
+    border-color: var(--accent);
+  }
+  .link-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.75rem;
+    background: #0c0c0c;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  /* Pikachu Animations */
+  @keyframes pikaHover {
+    0%, 100% { transform: translateY(0px) scale(1); }
+    50% { transform: translateY(-6px) scale(1.02); }
+  }
+  @keyframes pikaThunder {
+    0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0 transparent); }
+    20% { transform: scale(1.18) rotate(-4deg); filter: drop-shadow(0 0 25px #facc15) drop-shadow(0 0 45px #f59e0b); }
+    40% { transform: scale(1.22) rotate(4deg); filter: drop-shadow(0 0 35px #ffffff) drop-shadow(0 0 60px #facc15); }
+    60% { transform: scale(1.15) rotate(-2deg); filter: drop-shadow(0 0 25px #facc15); }
+    100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0 transparent); }
+  }
+  .pika-avatar {
+    animation: pikaHover 2.8s infinite ease-in-out;
+    width: 105px;
+    height: 105px;
+    transition: all 0.3s ease;
+  }
+  .pika-firing {
+    animation: pikaThunder 0.9s infinite ease-in-out !important;
   }
   .checklist-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
-    text-align: left;
+    font-size: 0.83rem;
   }
   .checklist-table th, .checklist-table td {
     padding: 0.65rem 0.85rem;
     border-bottom: 1px solid var(--card-border);
   }
   .checklist-table th {
-    background: rgba(0,0,0,0.25);
+    background: #050505;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.73rem;
     text-transform: uppercase;
-  }
-  /* Pokemon Animation */
-  @keyframes pokeBounce {
-    0%, 100% { transform: translateY(0px) scale(1); }
-    50% { transform: translateY(-8px) scale(1.02); }
-  }
-  @keyframes pokeAttack {
-    0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(16,185,129,0)); }
-    50% { transform: scale(1.15) rotate(-3deg); filter: drop-shadow(0 0 15px #10b981); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(16,185,129,0)); }
-  }
-  .poke-sprite {
-    animation: pokeBounce 2.5s infinite ease-in-out;
-    width: 70px;
-    height: 70px;
-  }
-  .poke-attacking {
-    animation: pokeAttack 0.6s ease-in-out;
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="split-container">
-  <!-- LEFT SIDE: Huge Chatbox & Project Context -->
-  <div class="card-pane">
-    <div class="pane-header">
-      <h3 style="font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
-        💬 Senior QA Assistant
-      </h3>
-      <span class="badge" style="background: rgba(59,130,246,0.15); color: #60a5fa;">Cloudflare Qwen/DeepSeek</span>
-    </div>
-
-    <!-- Chat Messages -->
-    <div class="chat-messages" id="chatList">
-      <div class="msg-bubble msg-agent">
-        👋 Hello! I am KHUNKHAAR, your autonomous Senior QA & Security agent.
-        Ask me anything about your API contracts, multi-role RBAC matrices, or trigger deep testing.
-      </div>
-      {% for m in messages %}
-      <div class="msg-bubble msg-{{ m.sender }}">{{ m.text }}</div>
-      {% endfor %}
-    </div>
-
-    <!-- Chat Input -->
-    <div style="padding: 0.75rem 1rem; border-top: 1px solid var(--card-border); display: flex; gap: 0.5rem;">
-      <input id="chatInput" type="text" placeholder="Ask QA agent or give test instructions..." style="
-        flex: 1; padding: 0.65rem 0.85rem; background: var(--bg); border: 1px solid var(--card-border);
-        border-radius: 8px; color: #fff; font-size: 0.88rem;
-      " onkeydown="if(event.key==='Enter') sendChat()">
-      <button onclick="sendChat()" style="
-        padding: 0.65rem 1rem; background: var(--accent); border: none; border-radius: 8px;
-        color: #090d16; font-weight: 700; cursor: pointer;
-      ">Send</button>
-    </div>
-
-    <!-- Project Context & Inputs -->
-    <div style="padding: 1rem; border-top: 1px solid var(--card-border); background: rgba(0,0,0,0.18);">
-      <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.6rem;">
-        Project Context & Target Controls
-      </div>
-      
-      <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.82rem;">
-        <div>
-          <span style="color: var(--text-muted);">Target URL:</span>
-          <input id="targetUrlInput" type="text" value="{{ project.target_urls[0] if project.target_urls else 'http://localhost:8000' }}" style="
-            width: 100%; padding: 0.4rem 0.6rem; background: var(--bg); border: 1px solid var(--card-border);
-            border-radius: 6px; color: #fff; font-family: 'JetBrains Mono'; margin-top: 0.2rem;
-          ">
-        </div>
-        <div style="display: flex; justify-content: space-between;">
-          <span style="color: var(--text-muted);">Codebase:</span>
-          <span class="font-mono" style="color: #cbd5e1; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            {{ project.root_path or 'No local path' }}
-          </span>
-        </div>
-        {% if project.github_url %}
-        <div style="display: flex; justify-content: space-between;">
-          <span style="color: var(--text-muted);">GitHub Repo:</span>
-          <a href="{{ project.github_url }}" target="_blank" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            {{ project.github_url }}
-          </a>
-        </div>
-        {% endif %}
-      </div>
-
-      <button id="btnTestProject" onclick="startReconAndPlan()" style="
-        width: 100%; margin-top: 0.9rem; padding: 0.75rem; background: var(--accent);
-        border: none; border-radius: 8px; color: #090d16; font-weight: 700; font-size: 0.95rem;
-        cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-        box-shadow: 0 0 15px var(--accent-glow);
-      ">
-        ⚡ Test Project (Start Recon & Checklist)
-      </button>
-    </div>
-  </div>
-
-  <!-- RIGHT SIDE: Agent Battle Control, Live Logs & Interactive Checklist -->
-  <div class="card-pane" style="overflow-y: auto;">
-    <!-- Top Bar: Pokemon Animation & Live Agent Status -->
-    <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; gap: 1.5rem; background: linear-gradient(180deg, rgba(16,185,129,0.06) 0%, transparent 100%);">
-      <!-- Pokemon Sprite -->
-      <div id="pokeBox" style="position: relative;">
-        <svg class="poke-sprite" id="pokeSprite" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Stylized Gengar / Pokemon Agent Body -->
-          <circle cx="50" cy="50" r="38" fill="#4c1d95" stroke="#7c3aed" stroke-width="3"/>
-          <path d="M 25 22 L 32 35 L 20 38 Z" fill="#4c1d95" stroke="#7c3aed" stroke-width="2"/>
-          <path d="M 75 22 L 68 35 L 80 38 Z" fill="#4c1d95" stroke="#7c3aed" stroke-width="2"/>
-          <polygon points="35,42 45,46 38,48" fill="#ef4444"/>
-          <polygon points="65,42 55,46 62,48" fill="#ef4444"/>
-          <path d="M 32 62 Q 50 78 68 62" stroke="#ffffff" stroke-width="3" fill="none"/>
-          <path d="M 38 65 L 42 70 L 46 66 L 50 71 L 54 66 L 58 70 L 62 65" stroke="#ffffff" stroke-width="2"/>
+<div class="split-50-50">
+  <!-- LEFT SIDE (50%): Pikachu Agent, Context Notes & Dynamic Links -->
+  <div class="pane" style="overflow-y: auto;">
+    <!-- Pikachu Header Showcase -->
+    <div style="padding: 1.5rem; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; gap: 1.5rem; background: linear-gradient(180deg, rgba(250,204,21,0.04) 0%, transparent 100%);">
+      <div id="pikaContainer" style="position: relative;">
+        <!-- High-Detail Pikachu SVG -->
+        <svg class="pika-avatar" id="pikaSprite" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <!-- Ears -->
+          <polygon points="25,55 5,5 40,30" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+          <polygon points="5,5 15,20 25,12" fill="#000000"/>
+          <polygon points="95,55 115,5 80,30" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+          <polygon points="115,5 105,20 95,12" fill="#000000"/>
+          <!-- Head / Body -->
+          <ellipse cx="60" cy="65" rx="42" ry="38" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+          <!-- Red Cheeks -->
+          <circle cx="30" cy="72" r="9" fill="#ef4444"/>
+          <circle cx="90" cy="72" r="9" fill="#ef4444"/>
+          <!-- Eyes -->
+          <circle cx="44" cy="58" r="6" fill="#1e1e1e"/>
+          <circle cx="42" cy="56" r="2.2" fill="#ffffff"/>
+          <circle cx="76" cy="58" r="6" fill="#1e1e1e"/>
+          <circle cx="74" cy="56" r="2.2" fill="#ffffff"/>
+          <!-- Nose & Smile -->
+          <polygon points="59,66 61,66 60,68" fill="#1e1e1e"/>
+          <path d="M 52 73 Q 60 78 68 73" stroke="#1e1e1e" stroke-width="2.5" fill="none"/>
         </svg>
       </div>
 
       <div style="flex: 1;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-          <h4 style="font-size: 1.1rem; color: #fff;">Khunkhaar Agent: Level 100 QA Auditor</h4>
-          <span id="agentStatusBadge" class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981;">
-            ● Idle / Ready
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+          <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff;">
+            ⚡ Pikachu QA Agent
+          </h3>
+          <span id="pikaBadge" class="badge" style="background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid #facc15;">
+            Ready to Strike
           </span>
         </div>
-        <!-- HP / Progress Bar -->
-        <div style="background: rgba(0,0,0,0.4); height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid var(--card-border);">
-          <div id="testProgressBar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.4s ease;"></div>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-top: 0.35rem; font-size: 0.75rem; color: var(--text-muted); font-family: 'JetBrains Mono';">
-          <span id="progressStepLabel">Stage: Awaiting Test Trigger</span>
-          <span id="testCounterLabel">0 / 0 Executed</span>
+        <p style="color: var(--text-muted); font-size: 0.83rem;">
+          Autonomous testing agent ready to explore AST routes, introspect database relations, and execute test cases.
+        </p>
+      </div>
+    </div>
+
+    <!-- Context Text Area -->
+    <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border);">
+      <label style="display: block; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+        📝 Project Context, Business Rules & Notes
+      </label>
+      <textarea id="ctxDescription" rows="4" class="input-box" placeholder="Add specific business rules (e.g. Employee can submit hours, Pod Lead approves, Manager verifies, HR pays), test credentials, or edge cases..." onchange="saveContext()">{{ project.description }}</textarea>
+    </div>
+
+    <!-- Target Controls & Codebase -->
+    <div style="padding: 1.25rem; border-bottom: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 0.75rem;">
+      <div>
+        <label style="display: block; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.35rem;">
+          🎯 Target URL (e.g. http://localhost:8000/graphql)
+        </label>
+        <input id="ctxTargetUrl" type="text" class="input-box font-mono" value="{{ project.target_urls[0] if project.target_urls else 'http://localhost:8000' }}" onchange="saveContext()">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.35rem;">
+          📁 Local Codebase Directory
+        </label>
+        <div class="font-mono" style="padding: 0.65rem 0.85rem; background: #020202; border: 1px solid var(--card-border); border-radius: 8px; font-size: 0.82rem; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          {{ project.root_path or 'No local path configured' }}
         </div>
       </div>
     </div>
 
-    <!-- Live Streaming Logs Accordion -->
-    <div style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--card-border); background: #0b0f19;">
+    <!-- Context Related Links with + Icon -->
+    <div style="padding: 1.25rem; flex: 1;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <label style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+          🔗 Context & Related Documentation Links
+        </label>
+      </div>
+
+      <!-- Add Link Input -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <input id="newLinkInput" type="text" placeholder="https://docs.api.io or http://localhost:8000/schema" class="input-box" style="flex: 1;">
+        <button onclick="addLink()" style="
+          padding: 0 1rem; background: #171717; border: 1px solid var(--card-border); border-radius: 8px;
+          color: #fff; font-size: 1.25rem; cursor: pointer; transition: background 0.2s;
+        " onmouseover="this.style.background='var(--accent)'; this.style.color='#000';" onmouseout="this.style.background='#171717'; this.style.color='#fff';">
+          +
+        </button>
+      </div>
+
+      <!-- Link List -->
+      <div id="linkContainer" style="display: flex; flex-direction: column; gap: 0.45rem;">
+        {% for l in project.context_links %}
+        <div class="link-pill" id="link-{{ loop.index0 }}">
+          <a href="{{ l }}" target="_blank" style="color: #60a5fa; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            {{ l }}
+          </a>
+          <button onclick="removeLink('{{ l }}', 'link-{{ loop.index0 }}')" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1rem;">&times;</button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Big Thunderbolt Action Button -->
+    <div style="padding: 1.25rem; border-top: 1px solid var(--card-border); background: #030303;">
+      <button id="btnTestProject" onclick="fireThunderboltAndTest()" style="
+        width: 100%; padding: 0.9rem; background: var(--pika-yellow); border: none; border-radius: 10px;
+        color: #000; font-weight: 800; font-size: 1rem; cursor: pointer; display: flex; align-items: center;
+        justify-content: center; gap: 0.6rem; box-shadow: 0 0 25px var(--pika-glow); transition: all 0.2s;
+      " onmouseover="this.style.transform='scale(1.01)'" onmouseout="this.style.transform='scale(1)'">
+        ⚡ TEST PROJECT (Fire Pikachu Thunderbolt)
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDE (50%): Telemetry Log Stream & Interactive Checklist Sheet -->
+  <div class="pane" style="overflow-y: auto;">
+    <div class="pane-header">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="color: var(--accent);">●</span>
+        <h3 style="font-size: 1rem;">Execution Stream & Test Checklist Sheet</h3>
+      </div>
+      <span class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981;">
+        Endpoint: /api/projects/{{ project.id }}/logs/stream
+      </span>
+    </div>
+
+    <!-- Real-Time Telemetry Stream -->
+    <div style="padding: 1rem; border-bottom: 1px solid var(--card-border); background: #020202;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono';">
-          📡 Real-Time Telemetry & Execution Stream
+        <span style="font-size: 0.75rem; font-family: 'JetBrains Mono'; color: var(--text-muted); text-transform: uppercase;">
+          📡 Real-Time Live Logs (SSE)
         </span>
-        <span style="font-size: 0.72rem; color: var(--accent); font-family: 'JetBrains Mono';">LIVE SSE</span>
+        <span id="sseStatusBadge" style="font-size: 0.72rem; color: #10b981; font-family: 'JetBrains Mono';">● CONNECTED</span>
       </div>
       <div id="logTerminal" style="
-        height: 100px; overflow-y: auto; background: #05070c; border: 1px solid var(--card-border);
-        border-radius: 6px; padding: 0.5rem 0.75rem; font-family: 'JetBrains Mono'; font-size: 0.78rem;
-        color: #10b981; line-height: 1.4;
+        height: 120px; overflow-y: auto; background: #000000; border: 1px solid #141414;
+        border-radius: 8px; padding: 0.6rem 0.85rem; font-family: 'JetBrains Mono'; font-size: 0.78rem;
+        color: #10b981; line-height: 1.45;
       ">
-        [system] Ready for reconnaissance. Click 'Test Project' to begin.
+        > [system] Live telemetry stream ready. Target: {{ project.target_urls[0] if project.target_urls else 'http://localhost:8000' }}
+        > [agent] Pikachu is standing by. Click 'TEST PROJECT' to fire reconnaissance.
+      </div>
+    </div>
+
+    <!-- Test Progress Bar -->
+    <div style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--card-border); background: #050505;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-size: 0.78rem; color: var(--text-muted); font-family: 'JetBrains Mono';">
+        <span id="stageLabel">Stage: Awaiting Test Run</span>
+        <span id="testCounterLabel">0 / 0 Executed</span>
+      </div>
+      <div style="background: #111; height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid var(--card-border);">
+        <div id="testProgressBar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
       </div>
     </div>
 
@@ -220,12 +259,12 @@
     <div style="flex: 1; padding: 1.25rem;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem;">
         <div>
-          <h3 style="font-size: 1.15rem;">📋 Test Checklist Sheet (Human Review Phase)</h3>
-          <p style="color: var(--text-muted); font-size: 0.82rem;">Select/Deselect, customize, or add comments before approving full execution.</p>
+          <h4 style="font-size: 1.1rem; color: #fff;">Test Checklist Sheet</h4>
+          <p style="color: var(--text-muted); font-size: 0.78rem;">Human review phase: select/deselect, inspect role boundaries and invariants.</p>
         </div>
         <button id="btnApprove" onclick="approveAndExecute()" style="
-          padding: 0.65rem 1.35rem; background: var(--accent); border: none; border-radius: 8px;
-          color: #090d16; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 0 15px var(--accent-glow);
+          padding: 0.65rem 1.25rem; background: var(--accent); border: none; border-radius: 8px;
+          color: #000; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 0 15px rgba(16,185,129,0.25);
         ">
           ✅ APPROVE & RUN SELECTED
         </button>
@@ -235,12 +274,12 @@
         <table class="checklist-table">
           <thead>
             <tr>
-              <th style="width: 40px; text-align: center;"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" checked></th>
-              <th style="width: 90px;">Category</th>
+              <th style="width: 36px; text-align: center;"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" checked></th>
+              <th style="width: 80px;">Category</th>
               <th>Test Case & Invariant</th>
-              <th style="width: 100px;">Role</th>
-              <th style="width: 90px;">Severity</th>
-              <th style="width: 100px;">Status</th>
+              <th style="width: 90px;">Role</th>
+              <th style="width: 80px;">Severity</th>
+              <th style="width: 90px;">Status</th>
             </tr>
           </thead>
           <tbody id="checklistBody">
@@ -254,9 +293,9 @@
               </td>
               <td>
                 <div style="font-weight: 600; color: #fff;">{{ item.title }}</div>
-                <div style="color: var(--text-muted); font-size: 0.78rem;">{{ item.description }}</div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;">{{ item.description }}</div>
               </td>
-              <td class="font-mono" style="font-size: 0.78rem; color: #a5b4fc;">{{ item.role }}</td>
+              <td class="font-mono" style="font-size: 0.75rem; color: #a5b4fc;">{{ item.role }}</td>
               <td>
                 <span class="badge" style="
                   background: {% if item.severity == 'critical' %}rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #ef4444;{% elif item.severity == 'high' %}rgba(245,158,11,0.15); color: #f59e0b;{% else %}rgba(59,130,246,0.15); color: #60a5fa;{% endif %}
@@ -270,8 +309,8 @@
             </tr>
             {% else %}
             <tr>
-              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
-                No test checklist generated yet. Click <strong>"Test Project"</strong> on the left to scan your codebase and build this sheet.
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                No test checklist generated yet. Click <strong>"TEST PROJECT"</strong> on the left to trigger Pikachu reconnaissance.
               </td>
             </tr>
             {% endfor %}
@@ -284,8 +323,9 @@
 
 <script>
   const projectId = "{{ project.id }}";
+  let contextLinks = {{ project.context_links | tojson if project.context_links else '[]' }};
 
-  // SSE Live Log Stream
+  // SSE Live Log Stream from central endpoint
   const evtSource = new EventSource(`/api/projects/${projectId}/logs/stream`);
   const logTerminal = document.getElementById('logTerminal');
   evtSource.onmessage = function(e) {
@@ -295,50 +335,79 @@
     logTerminal.appendChild(line);
     logTerminal.scrollTop = logTerminal.scrollHeight;
   };
+  evtSource.onerror = function() {
+    document.getElementById('sseStatusBadge').textContent = '● RECONNECTING';
+    document.getElementById('sseStatusBadge').style.color = '#f59e0b';
+  };
 
-  // Chat Submission
-  async function sendChat() {
-    const input = document.getElementById('chatInput');
-    const msg = input.value.trim();
-    if (!msg) return;
-    input.value = '';
-
-    // Append user message immediately
-    const chatList = document.getElementById('chatList');
-    const uBubble = document.createElement('div');
-    uBubble.className = 'msg-bubble msg-user';
-    uBubble.textContent = msg;
-    chatList.appendChild(uBubble);
-    chatList.scrollTop = chatList.scrollHeight;
-
-    const res = await fetch(`/api/projects/${projectId}/chat`, {
+  // Auto-save project context (description & target URLs)
+  async function saveContext() {
+    const desc = document.getElementById('ctxDescription').value;
+    const targetUrl = document.getElementById('ctxTargetUrl').value.trim();
+    await fetch(`/api/projects/${projectId}/context`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg })
+      body: JSON.stringify({
+        description: desc,
+        target_urls: targetUrl ? [targetUrl] : [],
+        context_links: contextLinks
+      })
     });
-    const data = await res.json();
-    const aBubble = document.createElement('div');
-    aBubble.className = 'msg-bubble msg-agent';
-    aBubble.textContent = data.reply;
-    chatList.appendChild(aBubble);
-    chatList.scrollTop = chatList.scrollHeight;
   }
 
-  // Trigger Recon & Checklist Generation
-  async function startReconAndPlan() {
+  // Add Dynamic Link with + button
+  async function addLink() {
+    const input = document.getElementById('newLinkInput');
+    const link = input.value.trim();
+    if (!link) return;
+    if (!contextLinks.includes(link)) {
+      contextLinks.push(link);
+      const container = document.getElementById('linkContainer');
+      const div = document.createElement('div');
+      const id = 'link-' + Date.now();
+      div.className = 'link-pill';
+      div.id = id;
+      div.innerHTML = `
+        <a href="${link}" target="_blank" style="color: #60a5fa; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${link}</a>
+        <button onclick="removeLink('${link}', '${id}')" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1rem;">&times;</button>
+      `;
+      container.appendChild(div);
+      input.value = '';
+      await saveContext();
+    }
+  }
+
+  // Remove Dynamic Link
+  async function removeLink(link, elemId) {
+    contextLinks = contextLinks.filter(l => l !== link);
+    const el = document.getElementById(elemId);
+    if (el) el.remove();
+    await saveContext();
+  }
+
+  // Pikachu Thunderbolt Fire & Test Trigger
+  async function fireThunderboltAndTest() {
+    await saveContext();
     const btn = document.getElementById('btnTestProject');
     btn.disabled = true;
-    btn.textContent = '⏳ Scanning Codebase & AST...';
-    document.getElementById('agentStatusBadge').textContent = '● Scanning Codebase & DB';
-    document.getElementById('pokeSprite').classList.add('poke-attacking');
+    btn.textContent = '⚡ PIKACHU FIRING THUNDERBOLT...';
+    
+    // Trigger Pikachu Fire Animation
+    const pika = document.getElementById('pikaSprite');
+    pika.classList.add('pika-firing');
+    document.getElementById('pikaBadge').textContent = '⚡ THUNDERBOLT ACTIVE';
+    document.getElementById('pikaBadge').style.background = '#facc15';
+    document.getElementById('pikaBadge').style.color = '#000';
 
     const res = await fetch(`/api/projects/${projectId}/recon`, { method: 'POST' });
     const data = await res.json();
-    btn.disabled = false;
-    btn.textContent = '⚡ Re-scan Project';
-    document.getElementById('agentStatusBadge').textContent = '● Checklist Ready';
-    document.getElementById('pokeSprite').classList.remove('poke-attacking');
-    window.location.reload();
+
+    setTimeout(() => {
+      pika.classList.remove('pika-firing');
+      btn.disabled = false;
+      btn.textContent = '⚡ RE-TEST PROJECT';
+      window.location.reload();
+    }, 1500);
   }
 
   // Checkbox controls
@@ -346,7 +415,7 @@
     document.querySelectorAll('.chk-item').forEach(c => c.checked = el.checked);
   }
 
-  // Human Approval & Execution Pipeline
+  // Human Review & Approve Execution
   async function approveAndExecute() {
     const selected = Array.from(document.querySelectorAll('.chk-item:checked')).map(c => c.value);
     if (!selected.length) return alert('Please select at least one test case to approve.');
@@ -354,13 +423,15 @@
     const btn = document.getElementById('btnApprove');
     btn.disabled = true;
     btn.textContent = '⚡ Running Approved Tests...';
-    document.getElementById('agentStatusBadge').textContent = '● Battling Bugs...';
-    document.getElementById('pokeSprite').classList.add('poke-attacking');
+
+    const pika = document.getElementById('pikaSprite');
+    pika.classList.add('pika-firing');
+    document.getElementById('pikaBadge').textContent = '⚡ BATTLING BUGS';
 
     const bar = document.getElementById('testProgressBar');
     const counter = document.getElementById('testCounterLabel');
+    const stage = document.getElementById('stageLabel');
 
-    // Simulate multi-test progressive execution 1..457..889
     let current = 0;
     const total = selected.length;
     const interval = setInterval(() => {
@@ -368,13 +439,17 @@
       const pct = Math.round((current / total) * 100);
       bar.style.width = `${pct}%`;
       counter.textContent = `${current} / ${total} Executed`;
+      stage.textContent = `Executing Test #${current} of ${total}...`;
+
       if (current >= total) {
         clearInterval(interval);
-        document.getElementById('agentStatusBadge').textContent = '● Completed & Verified';
-        document.getElementById('progressStepLabel').textContent = 'Testing Complete — All Invariants Enforced';
-        document.getElementById('pokeSprite').classList.remove('poke-attacking');
+        pika.classList.remove('pika-firing');
+        document.getElementById('pikaBadge').textContent = '● BATTLE COMPLETE';
+        document.getElementById('pikaBadge').style.background = 'rgba(16,185,129,0.15)';
+        document.getElementById('pikaBadge').style.color = '#10b981';
+        stage.textContent = 'All Invariants Verified & Logged';
         btn.disabled = false;
-        btn.textContent = '✅ Tests Executed & Passed';
+        btn.textContent = '✅ Tests Completed';
       }
     }, 120);
 
